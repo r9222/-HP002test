@@ -1,4 +1,4 @@
-// app.js : たまフィットPFCアプリ 統合メインロジック (上書きAI対応版)
+// app.js : たまフィットPFCアプリ 統合メインロジック (テキストクリア修正版)
 
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std" }; 
 let lst = []; 
@@ -153,10 +153,12 @@ function toggleMic() {
 
     function stopAndSend() {
         if (!isRecording) return;
-        isRecording = false;
+        isRecording = false; // ★ここでフラグを折る
         micBtn.classList.remove('recording');
         inputEl.placeholder = "例: 夜ご飯なにがいい？";
+        
         try { recognition.stop(); } catch(e) {} 
+        
         if (inputEl.value.trim() !== "") {
             sendTamaChat();
         }
@@ -187,6 +189,9 @@ function toggleMic() {
     };
 
     recognition.onresult = (event) => {
+        // ★鉄壁のガード: 録音フラグが折れていたら、遅れてきた文字を絶対に入力させない
+        if (!isRecording) return;
+
         let interimTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
             let transcript = event.results[i][0].transcript;
@@ -203,10 +208,14 @@ function toggleMic() {
 
     recognition.onerror = (event) => {
         clearTimeout(speechTimeout);
-        if (event.error === 'aborted' || event.error === 'no-speech') {
+        if (event.error === 'aborted') {
+            if (isRecording) stopAndSend(); 
+            return;
+        }
+        if (event.error === 'no-speech') {
             isRecording = false;
             micBtn.classList.remove('recording');
-            inputEl.placeholder = "例: 夜ご飯なにがいい？";
+            inputEl.placeholder = "声が聞こえなかったたま。";
             return;
         }
 
@@ -229,12 +238,13 @@ async function sendTamaChat() {
     if (!text) return;
 
     addChatMsg('user', text);
+    
+    // ★ 送信開始時に一回白紙にする
     inputEl.value = '';
     inputEl.disabled = true;
 
     const loadingId = addChatMsg('bot', 'たまちゃん考え中...');
     
-    // AIに今の状況（直前の履歴含む）をしっかり渡す
     const context = `現在の摂取: ${lst.reduce((a,b)=>a+b.Cal,0)}kcal\n今日食べたものリスト: ${lst.map(x => x.N).join(', ') || 'まだなし'}`;
     let historyText = chatHistory.map(m => `${m.role === 'user' ? 'あなた' : 'たまちゃん'}: ${m.text}`).join('\n');
     
@@ -253,7 +263,6 @@ async function sendTamaChat() {
         let autoFood = null;
         let replaceFood = null;
 
-        // ★ [DATA] (新規追加) と [REPLACE] (上書き・削除) を振り分ける
         if (rawText.includes("[DATA]")) {
             const parts = rawText.split("[DATA]");
             botReply = parts[0].replace(/たまちゃんの返答:/g, "").trim();
@@ -276,30 +285,22 @@ async function sendTamaChat() {
         botReply = botReply.replace(/\*/g, "");
         addChatMsg('bot', botReply);
 
-        // ★ 新規追加の処理
         if (autoFood) {
             lst.push({ N: "🤖 " + autoFood.N, P: autoFood.P, F: autoFood.F, C: autoFood.C, Cal: autoFood.Cal, U: "AI推測" });
             localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } 
-        // ★ 空気を読んだ上書き（REPLACE）の処理
         else if (replaceFood) {
             if (lst.length > 0) {
-                // まず、間違っていた直前のデータをリストから削除する
                 lst.pop(); 
             }
-            
-            // もし「カロリーやPFCが0以上」なら、新しい正しい量として追加する
-            // （「やっぱり食べてない」等の完全削除時はすべて0になるので、追加されない）
             if (replaceFood.Cal > 0 || replaceFood.P > 0 || replaceFood.F > 0 || replaceFood.C > 0) {
                 lst.push({ N: "🤖 " + replaceFood.N, P: replaceFood.P, F: replaceFood.F, C: replaceFood.C, Cal: replaceFood.Cal, U: "AI修正" });
             }
-            
             localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // 履歴を保存
         chatHistory.push({ role: 'model', text: botReply });
         if (chatHistory.length > 6) chatHistory.shift();
 
@@ -307,7 +308,10 @@ async function sendTamaChat() {
         removeMsg(loadingId);
         addChatMsg('bot', '通信エラーだたま...。もう一度送ってたま！');
     } finally {
-        inputEl.disabled = false; inputEl.focus();
+        // ★ 念押しの白紙化（すべてが終わった後にもう一度綺麗にする）
+        inputEl.value = '';
+        inputEl.disabled = false;
+        // inputEl.focus(); // スマホでキーボードが勝手に出るのを防ぐため、あえてフォーカスは外したままにします
     }
 }
 
