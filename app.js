@@ -1,4 +1,4 @@
-// app.js : アプリの脳みそ
+// app.js : たまフィットPFCアプリ 統合メインロジック (完全修復版)
 
 // ■ グローバル変数
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std" }; 
@@ -39,7 +39,6 @@ window.onload = () => {
     mkCat(); mkTgt(); upd(); ren();
 };
 
-// --- 食品選択・表示系関数 (既存ロジック維持) ---
 function mkCat() {
     const d = document.getElementById('cat-btns');
     if(typeof DB === 'undefined') return;
@@ -57,6 +56,7 @@ function shwList(c, btn) {
     if (l.style.display === 'block' && l.dataset.cat === c) { l.style.display = 'none'; return; }
     btn.classList.add('act'); l.dataset.cat = c;
     l.innerHTML = `<div class="list-head"><span>${c === '⭐' ? 'お気に入り' : (c === '📂' ? 'My食品' : c)}</span><span class="cls-btn" onclick="clsList()">× 閉じる</span></div>`;
+    
     let itms = [];
     if (c === '📂') {
         if (myFoods.length === 0) l.innerHTML += `<div style="padding:15px;text-align:center;color:#666;">My食品はまだありません。</div>`;
@@ -66,10 +66,12 @@ function shwList(c, btn) {
         if (c === '⭐') itms = allItems.filter(x => fav.includes(x.i));
         else { itms = allItems.filter(x => x[0] === c); itms.sort((a, b) => (fav.includes(b.i) ? 1 : 0) - (fav.includes(a.i) ? 1 : 0)); }
     }
+
     itms.forEach(x => {
         const d = document.createElement('div'); d.className = 'f-btn';
         d.innerHTML = `<span>${x.name}</span>`;
         d.onclick = () => x.isMy ? selMyFd(x.i) : selFd(x.i);
+        
         const actBtn = document.createElement('span');
         if (x.isMy) {
             actBtn.className = 'del-icon'; actBtn.textContent = '削除';
@@ -97,10 +99,12 @@ function selFd(i) {
         [{l:"100",v:100,s:"小盛"},{l:"150",v:150,s:"普通"},{l:"250",v:250,s:"大盛"},{l:"200",v:200,s:""},{l:"300",v:300,s:""},{l:"400",v:400,s:""}].forEach(o => mkBtn(o.l, o.v, r, o.s));
     } else if (d[3].includes('g')) { [50, 100, 150, 200, 250].forEach(v => mkBtn(v, v, p)); } 
     else { [0.5, 1, 2, 3].forEach(v => mkBtn(v, v, p)); }
+    
     const bx = document.createElement('div'); bx.className = 'dir-inp';
     const unitLabel = d[3].includes('g') ? 'g' : (d[3].includes('杯') ? '杯' : '個/他');
     bx.innerHTML = `<input type="text" inputmode="decimal" placeholder="手入力" oninput="updBd(this.value)"><span class="unit-label">${unitLabel}</span>`;
     p.appendChild(bx);
+    
     document.getElementById('m-name').value = d[1];
     document.getElementById('m-p').value = d[4]; document.getElementById('m-f').value = d[5]; document.getElementById('m-c').value = d[6];
     updBd(1); setTimeout(() => document.getElementById('amt-area').scrollIntoView({ behavior: 'smooth' }), 100);
@@ -199,6 +203,7 @@ function addM() {
     const cal = parseNum(document.getElementById('m-cal').value) || (p * 4 + f * 9 + c * 4);
     const unit = (editIdx >= 0) ? lst[editIdx].U : (selIdx >= 0 ? DB[selIdx][3] : "-");
     const newData = { N: n, P: p, F: f, C: c, Cal: Math.round(cal), U: unit };
+
     if (editIdx >= 0) { lst[editIdx] = newData; editIdx = -1; document.getElementById('btn-reg').textContent = "リストに追加する"; document.getElementById('reg-bd').classList.remove('editing'); } 
     else { lst.push(newData); }
     sv(); ren(); upd();
@@ -221,7 +226,7 @@ function ren() {
             </div>`;
         ul.appendChild(li);
     });
-    document.getElementById('tot-cal').textContent = lst.reduce((a, b) => a + b.Cal, 0);
+    if(document.getElementById('tot-cal')) document.getElementById('tot-cal').textContent = lst.reduce((a, b) => a + b.Cal, 0);
 }
 
 function del(i) { lst.splice(i, 1); sv(); ren(); upd(); }
@@ -239,14 +244,22 @@ function ed(i) {
 
 function sv() { localStorage.setItem('tf_dat', JSON.stringify(lst)); }
 
-function rst() { document.getElementById('reset-modal').style.display = 'flex'; }
-function closeResetModal() { document.getElementById('reset-modal').style.display = 'none'; }
+function rst() {
+    document.getElementById('reset-modal').style.display = 'flex';
+}
+function closeResetModal() {
+    document.getElementById('reset-modal').style.display = 'none';
+}
 function confirmReset() {
     const d = document.getElementById('reset-date').value;
     if (!d) return alert("日付を選択してください");
-    const dateObj = new Date(d); const dateStr = dateObj.toLocaleDateString();
+    
+    const dateObj = new Date(d);
+    const dateStr = dateObj.toLocaleDateString();
+    
     const currentList = JSON.parse(JSON.stringify(lst));
     svHist(dateStr, currentList);
+    
     lst = []; sv(); ren(); upd();
     closeResetModal();
     alert(`${dateStr} の記録として保存し、リセットしました。`);
@@ -264,7 +277,12 @@ function togHist() { const a = document.getElementById('hist-area'); if (a.style
 function rHist() {
     const d = document.getElementById('h-list'); d.innerHTML = ""; if (!hist.length) d.innerHTML = "<p style='text-align:center'>履歴なし</p>";
     hist.forEach((h, i) => {
-        const foodsHtml = h.l.map(f => `<div class="hf-row"><span class="hf-name">${f.N}</span><span class="hf-vals">${f.Cal}kcal (P${f.P} F${f.F} C${f.C})</span></div>`).join('');
+        const foodsHtml = h.l.map(f => `
+            <div class="hf-row">
+                <span class="hf-name">${f.N}</span>
+                <span class="hf-vals">${f.Cal}kcal (P${f.P} F${f.F} C${f.C})</span>
+            </div>`).join('');
+
         const c = document.createElement('div'); c.className = 'h-card-wrap';
         c.innerHTML = `
             <div class="h-card">
@@ -276,11 +294,13 @@ function rHist() {
                     </div>
                     <div class="h-btns">
                         <button class="h-btn h-b-res" onclick="event.stopPropagation(); resHist(${i})">復元</button>
-                        <button class="h-btn h-b-cp" onclick="event.stopPropagation(); cpHist(${i})">テキストへコピー</button>
+                        <button class="h-btn h-b-cp" onclick="event.stopPropagation(); cpHist(${i})">テキストへ<br>コピー</button>
                         <button class="h-btn h-b-del" onclick="event.stopPropagation(); delHist(${i})">削除</button>
                     </div>
                 </div>
-                <div id="h-det-${i}" class="h-detail">${foodsHtml}</div>
+                <div id="h-det-${i}" class="h-detail">
+                    ${foodsHtml}
+                </div>
             </div>`;
         d.appendChild(c);
     });
@@ -295,7 +315,12 @@ function togFav(i, el) { const x = fav.indexOf(i); if (x >= 0) fav.splice(x, 1);
 function filterF() {
     const v = document.getElementById('s-inp').value; const r = document.getElementById('s-res'); r.innerHTML = ""; if (!v) { r.style.display = 'none'; return; }
     r.style.display = 'block';
-    DB.forEach((x, i) => { if (x[1].startsWith(v) || x[2].split(' ').some(k => k.startsWith(v))) { const d = document.createElement('div'); d.className = 's-item'; d.innerHTML = `<strong>${x[1]}</strong>`; d.onclick = () => { selFd(i); r.style.display = 'none'; }; r.appendChild(d); } });
+    DB.forEach((x, i) => {
+        if (x[1].startsWith(v) || x[2].split(' ').some(k => k.startsWith(v))) {
+            const d = document.createElement('div'); d.className = 's-item'; d.innerHTML = `<strong>${x[1]}</strong>`;
+            d.onclick = () => { selFd(i); r.style.display = 'none'; }; r.appendChild(d);
+        }
+    });
 }
 
 function mkTgt() {
@@ -326,7 +351,7 @@ function upd() {
         tx.className = 'rem ' + (r < 0 ? 'ov' : ''); tx.textContent = r < 0 ? `+${Math.abs(r).toFixed(0)}${u}` : `残${r.toFixed(0)}${u}`;
     };
     setBar('Cal', t.Cal, TG.cal, 'kcal'); setBar('P', t.P, TG.p, 'g'); setBar('F', t.F, TG.f, 'g'); setBar('C', t.C, TG.c, 'g');
-    document.getElementById('tgt-disp').textContent = `${TG.cal}kcal`;
+    if(document.getElementById('tgt-disp')) document.getElementById('tgt-disp').textContent = `${TG.cal}kcal`;
 }
 
 function applyCust() {
@@ -351,12 +376,17 @@ function drawGraph(type, btn) {
             data.push({ label: `${d.getDate()}日`, s: s, d: ds });
         }
     } else { data = hist.slice(0, 30).reverse().map(h => ({ label: h.d.split('/')[2], s: h.s, d: h.d })); }
+    
     if (data.length === 0) { box.innerHTML = '<p style="margin:auto;color:#ccc">データなし</p>'; return; }
+
     const total = data.reduce((acc, cur) => acc + cur.s.Cal, 0);
     const avg = data.length > 0 ? Math.round(total / data.length) : 0;
-    document.getElementById('stat-txt').innerHTML = `期間平均: ${avg}kcal <span style="font-size:10px;color:#999">(合計: ${total}kcal)</span>`;
+    document.getElementById('stat-txt').innerHTML = `期間平均: ${avg}kcal <span style="font-size:10px;color:#999">(合計: ${total}kcal)</span><br><span style="font-size:10px;">グラフの棒をタップで詳細</span>`;
+    
     const maxVal = Math.max(...data.map(d => d.s.Cal), TG.cal) || 2000;
+    
     const line = document.createElement('div'); line.className = 'target-line'; line.style.bottom = (TG.cal/maxVal)*100 + '%'; line.innerHTML = `<span class="target-val">${TG.cal}</span>`; box.appendChild(line);
+
     data.forEach(d => {
         const h = Math.min((d.s.Cal / maxVal) * 100, 100);
         const grp = document.createElement('div'); grp.className = 'bar-grp';
@@ -369,32 +399,94 @@ function drawGraph(type, btn) {
     });
 }
 
-function toggleBody() { const c = document.getElementById('body-content'); c.style.display = c.style.display === 'block' ? 'none' : 'block'; if(c.style.display === 'block') { drawBodyGraph('A', document.querySelector('.b-tog-btn')); renderBodyList(); } }
-function saveBody() {
-    const d = document.getElementById('b-date').value; const w = parseNum(document.getElementById('b-weight').value);
-    const f = parseNum(document.getElementById('b-fat').value); const waist = parseNum(document.getElementById('b-waist').value);
-    if(!d || (!w && !f && !waist)) return alert("日付と数値を入力してください");
-    const idx = bodyData.findIndex(x => x.date === d); const rec = { date: d, w: w, f: f, waist: waist };
-    if(idx >= 0) bodyData[idx] = rec; else bodyData.push(rec);
-    bodyData.sort((a,b) => new Date(a.date) - new Date(b.date)); localStorage.setItem('tf_body', JSON.stringify(bodyData));
-    alert("記録しました！"); renderBodyList(); drawBodyGraph('A', document.querySelector('.b-tog-btn'));
+// --- 体組成機能 ---
+function toggleBody() {
+    const c = document.getElementById('body-content');
+    c.style.display = c.style.display === 'block' ? 'none' : 'block';
+    if(c.style.display === 'block') { drawBodyGraph('A', document.querySelector('.b-tog-btn')); renderBodyList(); }
 }
+
+function saveBody() {
+    const d = document.getElementById('b-date').value;
+    const w = parseNum(document.getElementById('b-weight').value);
+    const f = parseNum(document.getElementById('b-fat').value);
+    const waist = parseNum(document.getElementById('b-waist').value);
+    if(!d || (!w && !f && !waist)) return alert("日付と数値を入力してください");
+
+    const idx = bodyData.findIndex(x => x.date === d);
+    const rec = { date: d, w: w, f: f, waist: waist };
+    if(idx >= 0) bodyData[idx] = rec; else bodyData.push(rec);
+    
+    bodyData.sort((a,b) => new Date(a.date) - new Date(b.date));
+    localStorage.setItem('tf_body', JSON.stringify(bodyData));
+    alert("記録しました！");
+    
+    const grid = document.querySelector('.body-inp-grid');
+    grid.classList.remove('editing-mode');
+    document.getElementById('b-weight').value = '';
+    document.getElementById('b-fat').value = '';
+    document.getElementById('b-waist').value = '';
+    
+    drawBodyGraph('A', document.querySelector('.b-tog-btn'));
+    renderBodyList();
+}
+
+function editBody(i) {
+    const d = bodyData[i];
+    document.getElementById('b-date').value = d.date;
+    document.getElementById('b-weight').value = d.w || '';
+    document.getElementById('b-fat').value = d.f || '';
+    document.getElementById('b-waist').value = d.waist || '';
+    
+    const grid = document.querySelector('.body-inp-grid');
+    grid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    grid.classList.add('editing-mode');
+}
+
+function deleteBody(i) {
+    if(!confirm("この記録を削除しますか？")) return;
+    bodyData.splice(i, 1);
+    localStorage.setItem('tf_body', JSON.stringify(bodyData));
+    drawBodyGraph('A', document.querySelector('.b-tog-btn'));
+    renderBodyList();
+}
+
 function renderBodyList() {
     const d = document.getElementById('body-hist-list');
     d.innerHTML = bodyData.slice().reverse().map((x, i) => {
         const originalIdx = bodyData.length - 1 - i;
-        return `<div class="b-hist-row" onclick="editBody(${originalIdx})"><span>${x.date}</span><span>${x.w?x.w+'kg':'-'} / ${x.f?x.f+'%':'-'} / ${x.waist?x.waist+'cm':'-'}</span><button class="b-del-btn" onclick="event.stopPropagation(); deleteBody(${originalIdx})">削除</button></div>`;
+        return `<div class="b-hist-row" onclick="editBody(${originalIdx})">
+            <span>${x.date}</span>
+            <span>${x.w?x.w+'kg':'-'} / ${x.f?x.f+'%':'-'} / ${x.waist?x.waist+'cm':'-'}</span>
+            <button class="b-del-btn" onclick="event.stopPropagation(); deleteBody(${originalIdx})">削除</button>
+        </div>`;
     }).join('');
 }
+
 function drawBodyGraph(mode, btn) {
-    document.querySelectorAll('.b-tog-btn').forEach(b => b.classList.remove('act')); if(btn) btn.classList.add('act');
-    const box = document.getElementById('body-chart-area'); box.innerHTML = ''; const legend = document.getElementById('body-legend'); legend.innerHTML = ''; 
+    document.querySelectorAll('.b-tog-btn').forEach(b => b.classList.remove('act'));
+    if(btn) btn.classList.add('act');
+    const box = document.getElementById('body-chart-area'); box.innerHTML = '';
+    const legend = document.getElementById('body-legend'); legend.innerHTML = ''; 
+
     if(bodyData.length === 0) { box.innerHTML = '<p style="padding:20px;text-align:center;color:#ccc">データがありません</p>'; return; }
-    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("viewBox", "0 0 300 150");
+
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 300 150");
+    
     const datasets = [];
-    if (mode === 'A') { datasets.push({ key: 'w', color: '#3498db', label: '体重', unit:'kg' }); datasets.push({ key: 'f', color: '#e67e22', label: '体脂肪率', unit:'%' }); datasets.push({ key: 'waist', color: '#2ecc71', label: 'ウエスト', unit:'cm' }); } 
-    else { datasets.push({ key: 'lbm', color: '#e74c3c', label: '除脂肪', unit:'kg' }); datasets.push({ key: 'fm', color: '#f1c40f', label: '脂肪量', unit:'kg' }); }
-    const dataPoints = bodyData.slice(-14); const xStep = 260 / (dataPoints.length - 1 || 1); 
+    if (mode === 'A') {
+        datasets.push({ key: 'w', color: '#3498db', label: '体重', unit:'kg' });
+        datasets.push({ key: 'f', color: '#e67e22', label: '体脂肪率', unit:'%' });
+        datasets.push({ key: 'waist', color: '#2ecc71', label: 'ウエスト', unit:'cm' });
+    } else {
+        datasets.push({ key: 'lbm', color: '#e74c3c', label: '除脂肪', unit:'kg' });
+        datasets.push({ key: 'fm', color: '#f1c40f', label: '脂肪量', unit:'kg' });
+    }
+
+    const dataPoints = bodyData.slice(-14);
+    const xStep = 260 / (dataPoints.length - 1 || 1); 
+
     datasets.forEach((ds) => {
         let pts = "";
         const vals = dataPoints.map(d => {
@@ -403,110 +495,214 @@ function drawBodyGraph(mode, btn) {
             if(ds.key === 'lbm') return (d.w && d.f) ? (d.w - (d.w * d.f / 100)) : 0;
             return 0;
         });
-        const max = Math.max(...vals) || 100; const min = Math.min(...vals.filter(v=>v>0)) || 0; const range = max - min || 1;
+
+        const max = Math.max(...vals) || 100;
+        const min = Math.min(...vals.filter(v=>v>0)) || 0;
+        const range = max - min || 1;
+        const current = vals[vals.length-1] || 0;
+
+        if(Math.max(...vals) > 0) {
+            legend.innerHTML += `
+            <div class="bl-item">
+                <div class="bl-dot" style="background:${ds.color}"></div>
+                <span>${ds.label}: ${current.toFixed(1)}${ds.unit} <span style="color:#999;font-size:9px;">(${min.toFixed(0)}~${max.toFixed(0)})</span></span>
+            </div>`;
+        }
+
         vals.forEach((v, i) => {
             if(v > 0) {
-                const x = 20 + i * xStep; const y = 130 - ((v - min) / range * 110); pts += `${x},${y} `;
-                const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle"); dot.setAttribute("cx", x); dot.setAttribute("cy", y); dot.setAttribute("r", "4"); dot.setAttribute("fill", ds.color); dot.setAttribute("class", "g-dot");
+                const x = 20 + i * xStep;
+                const y = 130 - ((v - min) / range * 110);
+                pts += `${x},${y} `;
+                const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                dot.setAttribute("cx", x); dot.setAttribute("cy", y); dot.setAttribute("r", "4"); dot.setAttribute("fill", ds.color); dot.setAttribute("class", "g-dot");
+                dot.onclick = () => {
+                    const pop = document.getElementById('body-pop');
+                    pop.style.display = 'block'; pop.style.left = (x/300*100) + '%'; pop.style.top = '10px';
+                    pop.innerHTML = `${dataPoints[i].date}<br>${ds.label}: ${v.toFixed(1)}`;
+                    setTimeout(()=>pop.style.display='none', 2000);
+                };
                 svg.appendChild(dot);
             }
         });
-        const poly = document.createElementNS("http://www.w3.org/2000/svg", "polyline"); poly.setAttribute("points", pts); poly.setAttribute("stroke", ds.color); poly.setAttribute("class", "g-line"); svg.prepend(poly);
+        const poly = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+        poly.setAttribute("points", pts); poly.setAttribute("stroke", ds.color); poly.setAttribute("class", "g-line"); svg.prepend(poly);
     });
+
+    if(dataPoints.length > 0){
+        const startTxt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        startTxt.setAttribute("x", 20); startTxt.setAttribute("y", 148); startTxt.setAttribute("class", "g-label"); 
+        startTxt.textContent = dataPoints[0].date.slice(5); svg.appendChild(startTxt);
+        
+        const endTxt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        endTxt.setAttribute("x", 280); endTxt.setAttribute("y", 148); endTxt.setAttribute("class", "g-label"); endTxt.setAttribute("text-anchor", "end");
+        endTxt.textContent = dataPoints[dataPoints.length-1].date.slice(5); svg.appendChild(endTxt);
+    }
+
     box.appendChild(svg);
 }
 
 function exportData() {
-    const data = { dat: localStorage.getItem('tf_dat'), tg: localStorage.getItem('tf_tg'), fav: localStorage.getItem('tf_fav'), my: localStorage.getItem('tf_my'), hist: localStorage.getItem('tf_hist'), body: localStorage.getItem('tf_body') };
-    const blob = new Blob([JSON.stringify(data)], {type: "text/json"}); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `pfc_backup_${new Date().toISOString().slice(0,10)}.json`; link.click();
+    const data = {
+        dat: localStorage.getItem('tf_dat'), tg: localStorage.getItem('tf_tg'),
+        fav: localStorage.getItem('tf_fav'), my: localStorage.getItem('tf_my'),
+        hist: localStorage.getItem('tf_hist'), date: localStorage.getItem('tf_date'),
+        body: localStorage.getItem('tf_body')
+    };
+    const blob = new Blob([JSON.stringify(data)], {type: "text/json"});
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `pfc_backup_${new Date().toISOString().slice(0,10)}.json`;
+    link.click();
 }
+
 function importData(input) {
-    const file = input.files[0]; if (!file) return; const reader = new FileReader();
-    reader.onload = function(e) { try { const data = JSON.parse(e.target.result); Object.keys(data).forEach(k => { if(data[k]) localStorage.setItem('tf_'+k, data[k]); }); alert("データを復元しました！"); location.reload(); } catch (err) { alert("ファイルが正しくありません"); } };
+    const file = input.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            if(data.tg) localStorage.setItem('tf_tg', data.tg);
+            if(data.fav) localStorage.setItem('tf_fav', data.fav);
+            if(data.my) localStorage.setItem('tf_my', data.my);
+            if(data.hist) localStorage.setItem('tf_hist', data.hist);
+            if(data.dat) localStorage.setItem('tf_dat', data.dat);
+            if(data.date) localStorage.setItem('tf_date', data.date);
+            if(data.body) localStorage.setItem('tf_body', data.body);
+            alert("データを復元しました！リロードします。"); location.reload();
+        } catch (err) { alert("ファイルが正しくありません"); }
+    };
     reader.readAsText(file);
 }
 
-// ▼▼▼ チャット機能JS (一瞬で切れない・粘り強い版) ▼▼▼
+// ▼▼▼ チャット・音声入力・AI推測機能 (修復・完全版) ▼▼▼
 
+// ★HPで使っている、AIを中継するGASのURL
 const gasUrl = "https://script.google.com/macros/s/AKfycby6THg5PeEHYWWwxFV9VvY7kJ3MAMwoEuaJNs_EK_VZWv9alxqsi25RxDQ2wikkI1-H/exec";
-let speechRecognition;
+
+let recognition;
 let isRecording = false;
+let finalTranscript = ''; 
 
 function toggleChat() {
-    const win = document.getElementById('tama-chat-window'); const btn = document.getElementById('tama-chat-btn');
-    if (win.style.display === 'flex') { win.style.display = 'none'; btn.style.display = 'flex'; } else { win.style.display = 'flex'; btn.style.display = 'none'; }
+    const win = document.getElementById('tama-chat-window');
+    const btn = document.getElementById('tama-chat-btn');
+    if (win.style.display === 'flex') {
+        win.style.display = 'none';
+        btn.style.display = 'flex'; 
+    } else {
+        win.style.display = 'flex';
+        btn.style.display = 'none';
+    }
 }
 
 function setupChatEnterKey() {
-    const input = document.getElementById('chat-input'); if (!input) return;
-    input.addEventListener('keypress', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTamaChat(); } });
+    const input = document.getElementById('chat-input');
+    if (!input) return;
+    input.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault(); 
+            sendTamaChat();
+        }
+    });
 }
 
+// ★マイク機能（粘り強いリスニング＆エラー自動復旧付き）
 function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
     const inputEl = document.getElementById('chat-input');
 
-    // すでに録音中なら停止（ユーザーによる明示的な終了）
     if (isRecording) {
-        if (speechRecognition) speechRecognition.stop();
+        isRecording = false;
+        if (recognition) recognition.stop();
         return;
     }
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) { alert("音声入力に対応していないたま..."); return; }
+    if (!SpeechRecognition) {
+        addChatMsg('bot', "お使いのブラウザは音声入力に対応してないたま...。\niPhoneならSafari、AndroidならChromeの最新版を使ってほしいたま！");
+        return;
+    }
 
-    speechRecognition = new SpeechRecognition();
-    speechRecognition.lang = 'ja-JP';
-    speechRecognition.continuous = true; // ★ ユーザーが止めるまで続ける
-    speechRecognition.interimResults = true; // ★ 途中経過をリアルタイム反映
+    recognition = new SpeechRecognition();
+    recognition.lang = 'ja-JP';
+    recognition.continuous = true;  // 途中で勝手に切れないようにする
+    recognition.interimResults = true; // 喋っている途中の文字も出す
 
-    let finalResult = ""; // 確定した文章の蓄積用
-
-    speechRecognition.onstart = () => {
+    recognition.onstart = () => {
         isRecording = true;
+        finalTranscript = ''; 
         micBtn.classList.add('recording');
-        inputEl.placeholder = "聞き取り中...（終わったらマイクをタップ）";
+        inputEl.placeholder = "たまちゃんが聞いてるたま！喋って！";
     };
 
-    speechRecognition.onresult = (event) => {
+    recognition.onresult = (event) => {
         let interimTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-            const transcript = event.results[i][0].transcript;
+            let transcript = event.results[i][0].transcript;
             if (event.results[i].isFinal) {
-                finalResult += transcript; // 確定分を保存
+                finalTranscript += transcript;
             } else {
-                interimTranscript += transcript; // 未確定分を一時保持
+                interimTranscript += transcript;
             }
         }
-        // 入力欄に「確定分 + 未確定分」を表示し続ける
-        inputEl.value = finalResult + interimTranscript;
+        inputEl.value = finalTranscript + interimTranscript;
     };
 
-    speechRecognition.onerror = (event) => {
-        console.error("Speech recognition error:", event.error);
-        if(event.error === 'no-speech') inputEl.placeholder = "声が聞こえないたま...";
-    };
+    recognition.onerror = (event) => {
+        console.warn("Speech recognition error:", event.error);
+        
+        // ネットワークエラーなら、少し待って自動で再起動
+        if (event.error === 'network') {
+            console.log("Network error. Retrying in 1s...");
+            setTimeout(() => { if (isRecording) recognition.start(); }, 1000);
+            return; 
+        }
 
-    speechRecognition.onend = () => {
+        // 無音エラーは無視して聞き続ける
+        if (event.error === 'no-speech') return; 
+
+        // その他のエラー（マイク未許可など）
         isRecording = false;
         micBtn.classList.remove('recording');
-        inputEl.placeholder = "例: 夜ご飯なにがいい？";
-        // 文字が入っていれば送信処理へ
-        if (inputEl.value.trim().length > 0) {
-            sendTamaChat();
+        
+        let errorMsg = "";
+        switch (event.error) {
+            case 'not-allowed': errorMsg = "マイクの使用が許可されてないたま！ブラウザの設定を確認してたま！"; break;
+            case 'audio-capture': errorMsg = "マイクが見つからないたま...。接続を確認してたま。"; break;
+            default: errorMsg = `エラー（${event.error}）で録音が止まっちゃったたま...`;
+        }
+        addChatMsg('bot', errorMsg);
+    };
+
+    recognition.onend = () => {
+        if (isRecording) {
+            // isRecording が true のまま onend が呼ばれた＝勝手に止まったので再起動
+            console.log("Recognition ended unexpectedly. Restarting...");
+            try { recognition.start(); } catch(e) {}
+        } else {
+            // ユーザーが手動で止めた場合
+            micBtn.classList.remove('recording');
+            inputEl.placeholder = "例: 夜ご飯なにがいい？";
+            if (inputEl.value.trim() !== "") {
+                sendTamaChat(); // そのまま送信
+            }
         }
     };
 
-    speechRecognition.start();
+    recognition.start();
 }
 
+// ★AIへの送信と自動入力機能
 async function sendTamaChat() {
     const inputEl = document.getElementById('chat-input');
     const sendBtn = document.getElementById('chat-send');
     const text = inputEl.value.trim();
     if (!text) return;
 
-    inputEl.disabled = true; sendBtn.disabled = true;
+    inputEl.disabled = true;
+    if(sendBtn) sendBtn.disabled = true;
+
     addChatMsg('user', text);
     inputEl.value = '';
 
@@ -515,55 +711,156 @@ async function sendTamaChat() {
 
     const loadingId = addChatMsg('bot', '筋トレ中...(思考中)');
     const context = getAppContextStr();
+
     let historyText = chatHistory.map(m => `${m.role === 'user' ? 'あなた' : 'たまちゃん'}: ${m.text}`).join('\n');
-    const basePrompt = (typeof SYSTEM_PROMPT !== 'undefined') ? SYSTEM_PROMPT : "フィットネスコーチ「たまちゃん」です。";
-    const fullPrompt = `${basePrompt}\n【ユーザーデータ】\n${context}\n【履歴】\n${historyText}\n【質問】\n${text}`;
+
+    const fallbackPrompt = "あなたはフィットネスアプリ「たまフィット」のキャラクター「たまちゃん」です。";
+    const basePrompt = (typeof SYSTEM_PROMPT !== 'undefined') ? SYSTEM_PROMPT : fallbackPrompt;
+
+    const fullPrompt = `
+${basePrompt}
+
+【ユーザーの現状データ】
+${context}
+
+【直近の会話履歴】
+${historyText}
+
+【ユーザーの最新の質問】
+${text}
+`;
 
     try {
-        const response = await fetch(gasUrl, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ contents: [{ parts: [{ text: fullPrompt }] }] }) });
-        const data = await response.json();
-        removeMsg(loadingId);
+        const response = await fetch(gasUrl, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain" },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: fullPrompt }] }] 
+            })
+        });
 
-        let botReply = "ごめんたま、うまく答えられないたま...";
+        const data = await response.json();
+        
+        if (data.error) {
+            console.error("API Error Details:", data.error);
+            addChatMsg('bot', `エラーだたま... (${data.error.message})`);
+            removeMsg(loadingId);
+            return;
+        }
+
+        let rawText = "ごめんたま、うまく答えられないたま...";
+        let botReply = "";
         let autoFoodData = null;
 
         if (data.candidates && data.candidates[0].content.parts[0].text) {
-            let rawText = data.candidates[0].content.parts[0].text;
+            rawText = data.candidates[0].content.parts[0].text;
+            
+            // ★ [DATA]タグを探してPFCを抽出する
             if (rawText.includes("[DATA]")) {
                 const parts = rawText.split("[DATA]");
                 botReply = parts[0].replace(/たまちゃんの返答:/g, "").trim();
-                const dP = parts[1].trim().split(",");
-                if (dP.length >= 5) autoFoodData = { name: dP[0].trim(), P: parseFloat(dP[1])||0, F: parseFloat(dP[2])||0, C: parseFloat(dP[3])||0, Cal: parseInt(dP[4])||0 };
+                
+                const dataString = parts[1].trim();
+                const dataParts = dataString.split(",");
+                
+                if (dataParts.length >= 5) {
+                    autoFoodData = {
+                        name: dataParts[0].trim(),
+                        P: parseFloat(dataParts[1].trim()) || 0,
+                        F: parseFloat(dataParts[2].trim()) || 0,
+                        C: parseFloat(dataParts[3].trim()) || 0,
+                        Cal: parseInt(dataParts[4].trim()) || 0
+                    };
+                }
             } else {
                 botReply = rawText.replace(/たまちゃんの返答:/g, "").trim();
             }
         }
 
-        botReply = botReply.replace(/\*\*/g, "").replace(/\*/g, "・");
+        removeMsg(loadingId);
+        
+        // マークダウンの除去
+        botReply = botReply.replace(/\*\*/g, "").replace(/\*/g, "・").replace(/#/g, "");
         addChatMsg('bot', botReply);
 
-        if (autoFoodData) {
-            lst.push({ N: "🤖 " + autoFoodData.name, P: autoFoodData.P, F: autoFoodData.F, C: autoFoodData.C, Cal: autoFoodData.Cal, U: "AI推測" });
-            sv(); ren(); upd(); window.scrollTo({ top: 0, behavior: 'smooth' });
+        // ★ AIが食事データを作ってくれていたら自動でリストに追加
+        if (autoFoodData && autoFoodData.name) {
+            const newData = {
+                N: "🤖 " + autoFoodData.name, 
+                P: autoFoodData.P,
+                F: autoFoodData.F,
+                C: autoFoodData.C,
+                Cal: autoFoodData.Cal,
+                U: "AI推測" 
+            };
+            lst.push(newData);
+            sv(); 
+            ren(); 
+            upd(); 
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
+
         chatHistory.push({ role: 'model', text: botReply });
         if (chatHistory.length > 6) chatHistory.shift();
-    } catch (e) { removeMsg(loadingId); addChatMsg('bot', '通信エラーだたま...'); } 
-    finally { inputEl.disabled = false; sendBtn.disabled = false; inputEl.focus(); }
+
+    } catch (error) {
+        console.error("Fetch Error:", error);
+        removeMsg(loadingId);
+        addChatMsg('bot', '通信エラーだたま...。通信環境を確認してもう一度送ってたま！');
+    } finally {
+        inputEl.disabled = false;
+        if(sendBtn) sendBtn.disabled = false;
+        inputEl.focus();
+    }
 }
 
 function addChatMsg(role, text) {
-    const box = document.getElementById('chat-messages'); const id = 'msg-' + Date.now();
-    const div = document.createElement('div'); div.className = `msg ${role}`; div.id = id;
-    const iconDiv = document.createElement('div'); iconDiv.className = 'icon'; iconDiv.innerHTML = '<img src="new_tama.png">';
-    const textDiv = document.createElement('div'); textDiv.className = 'text'; textDiv.innerText = text;
-    if(role === 'bot') { div.appendChild(iconDiv); div.appendChild(textDiv); } else { div.appendChild(textDiv); div.appendChild(iconDiv); }
-    box.appendChild(div); box.scrollTop = box.scrollHeight; return id;
+    const box = document.getElementById('chat-messages');
+    const id = 'msg-' + Date.now();
+    
+    const div = document.createElement('div');
+    div.className = `msg ${role}`;
+    div.id = id;
+    
+    const iconDiv = document.createElement('div');
+    iconDiv.className = 'icon';
+    iconDiv.innerHTML = '<img src="new_tama.png">';
+    
+    const textDiv = document.createElement('div');
+    textDiv.className = 'text';
+    textDiv.innerText = text;
+
+    if(role === 'bot') {
+        div.appendChild(iconDiv);
+        div.appendChild(textDiv);
+    } else {
+        div.appendChild(textDiv);
+        div.appendChild(iconDiv);
+    }
+
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+    return id;
 }
 
-function removeMsg(id) { const el = document.getElementById(id); if(el) el.remove(); }
+function removeMsg(id) {
+    const el = document.getElementById(id);
+    if(el) el.remove();
+}
 
 function getAppContextStr() {
-    let t = { Cal: 0, P: 0, F: 0, C: 0 }; lst.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; });
-    return `- 目標: ${TG.cal}kcal\n- 現在: ${t.Cal}kcal (残 ${TG.cal-t.Cal})\n- P:${t.P.toFixed(1)} F:${t.F.toFixed(1)} C:${t.C.toFixed(1)}\n- リスト: ${lst.map(x=>x.N).join(', ')}`;
+    let t = { Cal: 0, P: 0, F: 0, C: 0 };
+    lst.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; });
+    const remCal = TG.cal - t.Cal;
+    const remF = TG.f - t.F;
+
+    return `
+    - 目標カロリー: ${TG.cal}kcal (モード: ${TG.label})
+    - 現在の摂取: ${t.Cal}kcal (残り ${remCal}kcal)
+    - P(タンパク質): ${t.P.toFixed(1)}g / 目標 ${TG.p}g
+    - F(脂質): ${t.F.toFixed(1)}g / 目標 ${TG.f}g (残り ${remF.toFixed(1)}g)
+    - C(炭水化物): ${t.C.toFixed(1)}g / 目標 ${TG.c}g
+    - 今日食べたものリスト: ${lst.map(x => x.N).join(', ') || 'まだ何も食べてない'}
+    `;
 }
+// ▲▲▲ チャット機能JS ここまで ▲▲▲
