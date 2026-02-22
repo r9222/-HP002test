@@ -1,4 +1,4 @@
-// app.js : たまフィットPFCアプリ 統合メインロジック (音声修正・削除対応版)
+// app.js : たまフィットPFCアプリ 統合メインロジック (上書きAI対応版)
 
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std" }; 
 let lst = []; 
@@ -203,14 +203,10 @@ function toggleMic() {
 
     recognition.onerror = (event) => {
         clearTimeout(speechTimeout);
-        if (event.error === 'aborted') {
-            if (isRecording) stopAndSend(); 
-            return;
-        }
-        if (event.error === 'no-speech') {
+        if (event.error === 'aborted' || event.error === 'no-speech') {
             isRecording = false;
             micBtn.classList.remove('recording');
-            inputEl.placeholder = "声が聞こえなかったたま。";
+            inputEl.placeholder = "例: 夜ご飯なにがいい？";
             return;
         }
 
@@ -237,8 +233,12 @@ async function sendTamaChat() {
     inputEl.disabled = true;
 
     const loadingId = addChatMsg('bot', 'たまちゃん考え中...');
-    const context = `現在の摂取状況: カロリー合計 ${lst.reduce((a,b)=>a+b.Cal,0)}kcal, 目標 ${TG.cal}kcal\n今日食べたものリスト: ${lst.map(x => x.N).join(', ') || 'まだなし'}`;
-    const prompt = `${typeof SYSTEM_PROMPT !== 'undefined' ? SYSTEM_PROMPT : 'たまちゃんです。'}\n\n【状況】${context}\n【質問】${text}`;
+    
+    // AIに今の状況（直前の履歴含む）をしっかり渡す
+    const context = `現在の摂取: ${lst.reduce((a,b)=>a+b.Cal,0)}kcal\n今日食べたものリスト: ${lst.map(x => x.N).join(', ') || 'まだなし'}`;
+    let historyText = chatHistory.map(m => `${m.role === 'user' ? 'あなた' : 'たまちゃん'}: ${m.text}`).join('\n');
+    
+    const prompt = `${typeof SYSTEM_PROMPT !== 'undefined' ? SYSTEM_PROMPT : 'たまちゃんです。'}\n\n【状況】\n${context}\n\n【直近の会話履歴】\n${historyText}\n\n【ユーザーの最新の発言】\n${text}`;
 
     try {
         const response = await fetch(gasUrl, {
@@ -251,9 +251,9 @@ async function sendTamaChat() {
         let rawText = data.candidates[0].content.parts[0].text;
         let botReply = "";
         let autoFood = null;
-        let updateFood = null;
+        let replaceFood = null;
 
-        // ★ [DATA] (新規追加) と [UPDATE] (修正・削除) を振り分ける魔法
+        // ★ [DATA] (新規追加) と [REPLACE] (上書き・削除) を振り分ける
         if (rawText.includes("[DATA]")) {
             const parts = rawText.split("[DATA]");
             botReply = parts[0].replace(/たまちゃんの返答:/g, "").trim();
@@ -261,57 +261,47 @@ async function sendTamaChat() {
             if (d.length >= 5) {
                 autoFood = { N: d[0].trim(), P: parseFloat(d[1]), F: parseFloat(d[2]), C: parseFloat(d[3]), Cal: parseInt(d[4]) };
             }
-        } else if (rawText.includes("[UPDATE]")) {
-            const parts = rawText.split("[UPDATE]");
+        } else if (rawText.includes("[REPLACE]")) {
+            const parts = rawText.split("[REPLACE]");
             botReply = parts[0].replace(/たまちゃんの返答:/g, "").trim();
             const d = parts[1].split(",");
             if (d.length >= 5) {
-                updateFood = { N: d[0].trim(), P: parseFloat(d[1]), F: parseFloat(d[2]), C: parseFloat(d[3]), Cal: parseInt(d[4]) };
+                replaceFood = { N: d[0].trim(), P: parseFloat(d[1]), F: parseFloat(d[2]), C: parseFloat(d[3]), Cal: parseInt(d[4]) };
             }
         } else {
             botReply = rawText.replace(/たまちゃんの返答:/g, "").trim();
         }
 
         removeMsg(loadingId);
-        addChatMsg('bot', botReply.replace(/\*/g, ""));
+        botReply = botReply.replace(/\*/g, "");
+        addChatMsg('bot', botReply);
 
-        // 新規追加の処理
+        // ★ 新規追加の処理
         if (autoFood) {
             lst.push({ N: "🤖 " + autoFood.N, P: autoFood.P, F: autoFood.F, C: autoFood.C, Cal: autoFood.Cal, U: "AI推測" });
             localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } 
-        // ★修正・削除の処理
-        else if (updateFood) {
-            // リストの中から対象の食品を探す（新しい順）
-            let targetIdx = -1;
-            const searchName = updateFood.N.replace(/🤖\s*/, '').trim(); 
-            for (let i = lst.length - 1; i >= 0; i--) {
-                const listItemName = lst[i].N.replace(/🤖\s*/, '').trim();
-                // ゆるく一致するものを探す
-                if (listItemName === searchName || listItemName.includes(searchName) || searchName.includes(listItemName)) {
-                    targetIdx = i;
-                    break;
-                }
+        // ★ 空気を読んだ上書き（REPLACE）の処理
+        else if (replaceFood) {
+            if (lst.length > 0) {
+                // まず、間違っていた直前のデータをリストから削除する
+                lst.pop(); 
             }
-
-            if (targetIdx !== -1) {
-                // すべて0なら「削除」
-                if (updateFood.Cal === 0 && updateFood.P === 0 && updateFood.F === 0 && updateFood.C === 0) {
-                    lst.splice(targetIdx, 1);
-                } else {
-                    // それ以外は「数値を上書き」
-                    lst[targetIdx].P = updateFood.P;
-                    lst[targetIdx].F = updateFood.F;
-                    lst[targetIdx].C = updateFood.C;
-                    lst[targetIdx].Cal = updateFood.Cal;
-                }
-                localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd();
-            } else {
-                 addChatMsg('bot', "リストにそれっぽい食事が見つからなかったたま💦 手動で直してほしいたま！");
+            
+            // もし「カロリーやPFCが0以上」なら、新しい正しい量として追加する
+            // （「やっぱり食べてない」等の完全削除時はすべて0になるので、追加されない）
+            if (replaceFood.Cal > 0 || replaceFood.P > 0 || replaceFood.F > 0 || replaceFood.C > 0) {
+                lst.push({ N: "🤖 " + replaceFood.N, P: replaceFood.P, F: replaceFood.F, C: replaceFood.C, Cal: replaceFood.Cal, U: "AI修正" });
             }
+            
+            localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
+
+        // 履歴を保存
+        chatHistory.push({ role: 'model', text: botReply });
+        if (chatHistory.length > 6) chatHistory.shift();
 
     } catch (error) {
         removeMsg(loadingId);
