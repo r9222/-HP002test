@@ -1,4 +1,4 @@
-// app.js : たまフィットPFCアプリ 統合メインロジック (iOS強制自動送信対応版)
+// app.js : たまフィットPFCアプリ 統合メインロジック (音声修正・削除対応版)
 
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std" }; 
 let lst = []; 
@@ -128,7 +128,7 @@ function upd() {
     setBar('Cal', t.Cal, TG.cal, 'kcal'); setBar('P', t.P, TG.p, 'g'); setBar('F', t.F, TG.f, 'g'); setBar('C', t.C, TG.c, 'g');
 }
 
-// --- チャット・音声入力機能 (強制自動送信 対応版) ---
+// --- チャット・音声入力機能 ---
 
 const gasUrl = "https://script.google.com/macros/s/AKfycby6THg5PeEHYWWwxFV9VvY7kJ3MAMwoEuaJNs_EK_VZWv9alxqsi25RxDQ2wikkI1-H/exec";
 let recognition;
@@ -147,21 +147,16 @@ function setupChatEnterKey() {
     input.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) sendTamaChat(); });
 }
 
-// ★マイクと送信の制御を統合した魔法の関数
 function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
     const inputEl = document.getElementById('chat-input');
 
-    // ▼ iOSのSafari対策: 強制的に終了して、文字があれば直接送信を叩き込む関数
     function stopAndSend() {
         if (!isRecording) return;
         isRecording = false;
         micBtn.classList.remove('recording');
         inputEl.placeholder = "例: 夜ご飯なにがいい？";
-        
-        try { recognition.stop(); } catch(e) {} // 一応マイクを止める
-        
-        // 文字が入っていれば、直接 sendTamaChat() を発動！
+        try { recognition.stop(); } catch(e) {} 
         if (inputEl.value.trim() !== "") {
             sendTamaChat();
         }
@@ -169,7 +164,7 @@ function toggleMic() {
 
     if (isRecording) {
         clearTimeout(speechTimeout);
-        stopAndSend(); // 途中でマイクボタンを押して止めた場合も、自動送信する
+        stopAndSend(); 
         return;
     }
 
@@ -200,21 +195,16 @@ function toggleMic() {
         }
         inputEl.value = finalTranscript + interimTranscript;
 
-        // ★声がするたびにタイマーをリセット。1.5秒黙ったら直接送信へ！
         clearTimeout(speechTimeout);
         speechTimeout = setTimeout(() => {
-            console.log("沈黙検知。強制的に送信するたま！");
             stopAndSend(); 
         }, 1500); 
     };
 
     recognition.onerror = (event) => {
-        console.warn("Speech Error:", event.error);
         clearTimeout(speechTimeout);
-        
-        // iOS特有の「aborted（中断）」エラーの回避
         if (event.error === 'aborted') {
-            if (isRecording) stopAndSend(); // 送信が漏れていたらここで強制送信
+            if (isRecording) stopAndSend(); 
             return;
         }
         if (event.error === 'no-speech') {
@@ -226,20 +216,17 @@ function toggleMic() {
 
         isRecording = false;
         micBtn.classList.remove('recording');
-        let errorMsg = `エラー(${event.error})で止まっちゃったたま。`;
-        if(event.error === 'not-allowed') errorMsg = "マイクが許可されてないたま！";
-        addChatMsg('bot', errorMsg);
+        addChatMsg('bot', `エラー(${event.error})で止まっちゃったたま。`);
     };
 
     recognition.onend = () => {
         clearTimeout(speechTimeout);
-        if (isRecording) stopAndSend(); // Androidなどで自然に終わった場合
+        if (isRecording) stopAndSend(); 
     };
 
     recognition.start();
 }
 
-// ★AI送信とPFC自動登録
 async function sendTamaChat() {
     const inputEl = document.getElementById('chat-input');
     const text = inputEl.value.trim();
@@ -250,7 +237,7 @@ async function sendTamaChat() {
     inputEl.disabled = true;
 
     const loadingId = addChatMsg('bot', 'たまちゃん考え中...');
-    const context = `現在の摂取状況: カロリー合計 ${lst.reduce((a,b)=>a+b.Cal,0)}kcal, 目標 ${TG.cal}kcal`;
+    const context = `現在の摂取状況: カロリー合計 ${lst.reduce((a,b)=>a+b.Cal,0)}kcal, 目標 ${TG.cal}kcal\n今日食べたものリスト: ${lst.map(x => x.N).join(', ') || 'まだなし'}`;
     const prompt = `${typeof SYSTEM_PROMPT !== 'undefined' ? SYSTEM_PROMPT : 'たまちゃんです。'}\n\n【状況】${context}\n【質問】${text}`;
 
     try {
@@ -264,13 +251,22 @@ async function sendTamaChat() {
         let rawText = data.candidates[0].content.parts[0].text;
         let botReply = "";
         let autoFood = null;
+        let updateFood = null;
 
+        // ★ [DATA] (新規追加) と [UPDATE] (修正・削除) を振り分ける魔法
         if (rawText.includes("[DATA]")) {
             const parts = rawText.split("[DATA]");
             botReply = parts[0].replace(/たまちゃんの返答:/g, "").trim();
             const d = parts[1].split(",");
             if (d.length >= 5) {
                 autoFood = { N: d[0].trim(), P: parseFloat(d[1]), F: parseFloat(d[2]), C: parseFloat(d[3]), Cal: parseInt(d[4]) };
+            }
+        } else if (rawText.includes("[UPDATE]")) {
+            const parts = rawText.split("[UPDATE]");
+            botReply = parts[0].replace(/たまちゃんの返答:/g, "").trim();
+            const d = parts[1].split(",");
+            if (d.length >= 5) {
+                updateFood = { N: d[0].trim(), P: parseFloat(d[1]), F: parseFloat(d[2]), C: parseFloat(d[3]), Cal: parseInt(d[4]) };
             }
         } else {
             botReply = rawText.replace(/たまちゃんの返答:/g, "").trim();
@@ -279,11 +275,44 @@ async function sendTamaChat() {
         removeMsg(loadingId);
         addChatMsg('bot', botReply.replace(/\*/g, ""));
 
+        // 新規追加の処理
         if (autoFood) {
-            lst.push({ N: "🤖 " + autoFood.N, P: autoFood.P, F: autoFood.F, C: autoFood.C, Cal: autoFood.Cal });
+            lst.push({ N: "🤖 " + autoFood.N, P: autoFood.P, F: autoFood.F, C: autoFood.C, Cal: autoFood.Cal, U: "AI推測" });
             localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd();
             window.scrollTo({ top: 0, behavior: 'smooth' });
+        } 
+        // ★修正・削除の処理
+        else if (updateFood) {
+            // リストの中から対象の食品を探す（新しい順）
+            let targetIdx = -1;
+            const searchName = updateFood.N.replace(/🤖\s*/, '').trim(); 
+            for (let i = lst.length - 1; i >= 0; i--) {
+                const listItemName = lst[i].N.replace(/🤖\s*/, '').trim();
+                // ゆるく一致するものを探す
+                if (listItemName === searchName || listItemName.includes(searchName) || searchName.includes(listItemName)) {
+                    targetIdx = i;
+                    break;
+                }
+            }
+
+            if (targetIdx !== -1) {
+                // すべて0なら「削除」
+                if (updateFood.Cal === 0 && updateFood.P === 0 && updateFood.F === 0 && updateFood.C === 0) {
+                    lst.splice(targetIdx, 1);
+                } else {
+                    // それ以外は「数値を上書き」
+                    lst[targetIdx].P = updateFood.P;
+                    lst[targetIdx].F = updateFood.F;
+                    lst[targetIdx].C = updateFood.C;
+                    lst[targetIdx].Cal = updateFood.Cal;
+                }
+                localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd();
+            } else {
+                 addChatMsg('bot', "リストにそれっぽい食事が見つからなかったたま💦 手動で直してほしいたま！");
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
+
     } catch (error) {
         removeMsg(loadingId);
         addChatMsg('bot', '通信エラーだたま...。もう一度送ってたま！');
