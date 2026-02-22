@@ -1,569 +1,488 @@
-// app.js : アプリの脳みそ
-
-// ■ グローバル変数
-let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std" }; 
-let lst = []; 
-let fav = []; 
-let myFoods = []; 
-let hist = []; 
-let bodyData = []; 
-let chatHistory = []; 
-let selIdx = -1; 
-let editIdx = -1; 
-const toHira = s => s.replace(/[\u30a1-\u30f6]/g, m => String.fromCharCode(m.charCodeAt(0) - 0x60)); 
-
-function parseNum(val) {
-    if (typeof val !== 'string') return parseFloat(val) || 0;
-    const half = val.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
-    return parseFloat(half) || 0;
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>たまフィットPFC</title>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ▼▼▼ デザイン設定 (Version 8 完全復元) ▼▼▼ */
+:root {
+    --th: #f55a94;       /* ピンク */
+    --bg: #fdf2f4;       /* 薄いピンク背景 */
+    --tx: #333;          /* 文字色 */
+    --ac: #fff0f6;       /* アクセント */
+    --ma: #e6b422;       /* カロリー色 */
+    --mn: #ff9f43;       /* オレンジ */
+    --sb: #f0f2f5;       /* 検索枠 */
+    --del: #e74c3c;      /* 赤 */
+    --ed: #3498db;       /* 青 */
+    --add: #2ecc71;      /* 緑 */
+    --gd: #f39c12;       /* 金 */
+    --my: #9b59b6;       /* 紫 */
+    --body: #2ecc71;     /* 体組成 */
 }
 
-window.onload = () => {
-    if (localStorage.getItem('tf_tg')) TG = JSON.parse(localStorage.getItem('tf_tg'));
-    if (localStorage.getItem('tf_fav')) fav = JSON.parse(localStorage.getItem('tf_fav'));
-    if (localStorage.getItem('tf_my')) myFoods = JSON.parse(localStorage.getItem('tf_my'));
-    if (localStorage.getItem('tf_hist')) hist = JSON.parse(localStorage.getItem('tf_hist'));
-    if (localStorage.getItem('tf_body')) bodyData = JSON.parse(localStorage.getItem('tf_body'));
-    if (!TG.mode) TG.mode = "std";
-
-    const savedData = localStorage.getItem('tf_dat');
-    if (savedData) lst = JSON.parse(savedData);
-    
-    // 日付設定
-    const d = new Date();
-    const today = `${d.getFullYear()}-${("0"+(d.getMonth()+1)).slice(-2)}-${("0"+d.getDate()).slice(-2)}`;
-    if(document.getElementById('b-date')) document.getElementById('b-date').value = today;
-    if(document.getElementById('reset-date')) document.getElementById('reset-date').value = today;
-
-    setupChatEnterKey();
-    mkCat(); mkTgt(); upd(); ren();
-};
-
-// --- 食品選択・表示系関数 (既存ロジック維持) ---
-function mkCat() {
-    const d = document.getElementById('cat-btns');
-    if(typeof DB === 'undefined') return;
-    const cats = [...new Set(DB.map(i => i[0]))];
-    d.innerHTML = `<div class="c-btn fav-cat-btn" onclick="shwList('⭐',this)">⭐ お気に入り</div><div class="c-btn my-cat-btn" onclick="shwList('📂',this)">📂 My食品</div>`;
-    cats.forEach(c => {
-        const b = document.createElement('div'); b.className = 'c-btn'; b.textContent = c;
-        b.onclick = () => shwList(c, b); d.appendChild(b);
-    });
+body {
+    font-family: 'M PLUS Rounded 1c', sans-serif;
+    background: var(--bg);
+    color: var(--tx);
+    margin: 0;
+    padding: 0 0 120px;
+    line-height: 1.6;
+    -webkit-tap-highlight-color: transparent;
 }
 
-function shwList(c, btn) {
-    const l = document.getElementById('f-list');
-    document.querySelectorAll('.c-btn').forEach(x => x.classList.remove('act'));
-    if (l.style.display === 'block' && l.dataset.cat === c) { l.style.display = 'none'; return; }
-    btn.classList.add('act'); l.dataset.cat = c;
-    l.innerHTML = `<div class="list-head"><span>${c === '⭐' ? 'お気に入り' : (c === '📂' ? 'My食品' : c)}</span><span class="cls-btn" onclick="clsList()">× 閉じる</span></div>`;
-    let itms = [];
-    if (c === '📂') {
-        if (myFoods.length === 0) l.innerHTML += `<div style="padding:15px;text-align:center;color:#666;">My食品はまだありません。</div>`;
-        else itms = myFoods.map((x,i)=>({...x, name:x.N, isMy:true, i:i}));
-    } else {
-        const allItems = DB.map((x, i) => ({ ...x, name:x[1], isMy:false, i:i }));
-        if (c === '⭐') itms = allItems.filter(x => fav.includes(x.i));
-        else { itms = allItems.filter(x => x[0] === c); itms.sort((a, b) => (fav.includes(b.i) ? 1 : 0) - (fav.includes(a.i) ? 1 : 0)); }
-    }
-    itms.forEach(x => {
-        const d = document.createElement('div'); d.className = 'f-btn';
-        d.innerHTML = `<span>${x.name}</span>`;
-        d.onclick = () => x.isMy ? selMyFd(x.i) : selFd(x.i);
-        const actBtn = document.createElement('span');
-        if (x.isMy) {
-            actBtn.className = 'del-icon'; actBtn.textContent = '削除';
-            actBtn.onclick = (e) => { e.stopPropagation(); delMyFood(x.i); };
-        } else {
-            actBtn.className = 'fav-icon ' + (fav.includes(x.i) ? 'act' : ''); actBtn.textContent = '★';
-            actBtn.onclick = (e) => { e.stopPropagation(); togFav(x.i, actBtn); };
-        }
-        d.appendChild(actBtn); l.appendChild(d);
-    });
-    l.style.display = 'block';
+.header {
+    background: var(--th);
+    padding: 10px 15px;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    padding-top: env(safe-area-inset-top);
+}
+.header h1 {
+    color: #fff;
+    font-size: 20px;
+    margin: 0;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-function clsList() { document.getElementById('f-list').style.display = 'none'; document.querySelectorAll('.c-btn').forEach(x => x.classList.remove('act')); }
+.container { max-width: 600px; margin: 0 auto; padding: 15px; }
 
-function selFd(i) {
-    selIdx = i; editIdx = -1;
-    document.getElementById('btn-reg').textContent = "リストに追加する";
-    clsList(); document.getElementById('amt-area').style.display = 'block';
-    const d = DB[i];
-    const r = document.getElementById('rice-btns'); const p = document.getElementById('pst-btns');
-    r.innerHTML = ''; p.innerHTML = ''; r.style.display = 'none';
-    if (d[1].includes("白米") || d[1].includes("玄米") || d[1].includes("オート")) {
-        r.style.display = 'grid';
-        [{l:"100",v:100,s:"小盛"},{l:"150",v:150,s:"普通"},{l:"250",v:250,s:"大盛"},{l:"200",v:200,s:""},{l:"300",v:300,s:""},{l:"400",v:400,s:""}].forEach(o => mkBtn(o.l, o.v, r, o.s));
-    } else if (d[3].includes('g')) { [50, 100, 150, 200, 250].forEach(v => mkBtn(v, v, p)); } 
-    else { [0.5, 1, 2, 3].forEach(v => mkBtn(v, v, p)); }
-    const bx = document.createElement('div'); bx.className = 'dir-inp';
-    const unitLabel = d[3].includes('g') ? 'g' : (d[3].includes('杯') ? '杯' : '個/他');
-    bx.innerHTML = `<input type="text" inputmode="decimal" placeholder="手入力" oninput="updBd(this.value)"><span class="unit-label">${unitLabel}</span>`;
-    p.appendChild(bx);
-    document.getElementById('m-name').value = d[1];
-    document.getElementById('m-p').value = d[4]; document.getElementById('m-f').value = d[5]; document.getElementById('m-c').value = d[6];
-    updBd(1); setTimeout(() => document.getElementById('amt-area').scrollIntoView({ behavior: 'smooth' }), 100);
+/* アラート */
+.alert-box { background: #fff3cd; border: 1px solid #ffeeba; color: #856404; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 12px; }
+.alert-title { font-weight: bold; display: block; margin-bottom: 5px; }
+
+/* 目標設定 */
+.tgt-sec { background: #fff; padding: 10px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #eee; }
+.tgt-tog { font-weight: bold; color: var(--th); cursor: pointer; text-align: center; }
+.tgt-btns { display: none; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 10px; }
+.tg-btn { padding: 8px 2px; border: 1px solid #ddd; border-radius: 6px; font-size: 10px; text-align: center; cursor: pointer; display: flex; flex-direction: column; background: #fff; }
+.tg-btn.act { background: var(--th); color: #fff; border-color: var(--th); }
+#cust-tgt { display: none; padding: 10px; background: #f9f9f9; margin-top: 10px; border-radius: 8px; text-align: center; flex-direction: column; gap: 5px; }
+.cust-row { display: flex; gap: 10px; align-items: center; justify-content: center; margin-top: 5px; }
+#cust-cal { width: 80px; padding: 5px; border-radius: 4px; border: 1px solid #ccc; text-align: center; }
+.cust-btn { background: var(--th); color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+
+/* メーター */
+.dash { background: #fff; padding: 15px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); margin-bottom: 20px; border: 2px solid var(--th); }
+.dash-t { text-align: center; font-weight: bold; margin-bottom: 10px; color: var(--th); }
+.mtr { margin-bottom: 10px; }
+.mtr-l { display: flex; justify-content: space-between; font-size: 12px; font-weight: bold; }
+.bar-bg { height: 10px; background: #eee; border-radius: 5px; overflow: hidden; }
+.bar { height: 100%; background: var(--th); width: 0%; transition: width 0.5s; }
+.bar.ov { background: #e74c3c; }
+.rem { color: var(--th); font-weight: 900; font-size: 14px; }
+.mtr:first-child .rem { font-size: 18px; }
+.rem.ov { color: #e74c3c; }
+
+/* 入力エリア */
+.inp-sec { background: #fff; padding: 15px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
+label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; color: var(--th); }
+.s-box { position: relative; margin-bottom: 15px; }
+.s-inp { width: 100%; padding: 12px 12px 12px 40px; border-radius: 25px; border: 2px solid #ddd; background: var(--sb); font-size: 16px; box-sizing: border-box; }
+.s-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #999; }
+.s-res { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #ddd; border-radius: 8px; max-height: 250px; overflow-y: auto; z-index: 100; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+.s-item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; }
+
+/* カテゴリ・リスト */
+.cat-grp { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.c-btn { padding: 10px 5px; font-size: 13px; border: 1px solid var(--th); background: #fff; color: var(--th); border-radius: 6px; cursor: pointer; font-weight: bold; text-align: center; }
+.c-btn.act { background: var(--th); color: #fff; }
+.c-btn.fav-cat-btn { border-color: var(--gd); color: #d35400; background: #fff8e1; }
+.c-btn.fav-cat-btn.act { background: var(--gd); color: #fff; }
+.c-btn.my-cat-btn { border-color: var(--my); color: #8e44ad; background: #f3e5f5; }
+.c-btn.my-cat-btn.act { background: var(--my); color: #fff; }
+
+#f-list { display: none; margin-top: 10px; max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; background: #fff; }
+.list-head { position: sticky; top: 0; background: #eee; padding: 5px 10px; font-size: 12px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; z-index: 10; }
+.cls-btn { background: #999; color: #fff; padding: 2px 8px; border-radius: 4px; cursor: pointer; }
+.f-btn { padding: 12px; border-bottom: 1px solid #f0f0f0; cursor: pointer; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+.fav-icon { font-size: 20px; color: #ddd; padding: 0 10px; }
+.fav-icon.act { color: var(--gd); }
+.del-icon { font-size: 12px; color: #fff; background: var(--del); padding: 2px 8px; border-radius: 10px; }
+
+/* 分量ボタン */
+#amt-area { display: none; margin-top: 20px; }
+.amt-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 15px; }
+.amt-btns.rice { grid-template-columns: repeat(3, 1fr); margin-bottom: 5px; }
+.a-btn { padding: 5px 2px; background: #f4f4f4; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; cursor: pointer; text-align: center; display: flex; flex-direction: column; justify-content: center; min-height: 50px; }
+.a-btn span:first-child { font-weight: bold; font-size: 13px; }
+.a-btn .sub-label { font-size: 10px; color: #666; margin-bottom: 2px; }
+.a-btn.sel { background: var(--th); color: #fff; border-color: var(--th); }
+.a-btn.sel .sub-label { color: #fff; }
+.dir-inp { grid-column: span 1; border: 2px solid var(--mn); border-radius: 6px; overflow: hidden; display: flex; align-items: center; background: #fff; }
+.dir-inp input { width: 70%; height: 100%; border: none; text-align: center; font-weight: bold; padding: 0; font-size: 13px; }
+.unit-label { font-size: 11px; color: #666; width: 30%; text-align: center; background: #eee; height: 100%; display: flex; align-items: center; justify-content: center; }
+
+/* プレビュー・登録 */
+.pv-bar { background: linear-gradient(135deg, #fff0f6, #fff); border: 2px solid var(--th); border-radius: 8px; padding: 10px 15px; margin: 10px 0; cursor: pointer; position: relative; }
+.reg-bd { display: none; background: #fdfdfd; border: 2px solid var(--th); border-top: 1px dashed var(--th); border-radius: 0 0 8px 8px; padding: 15px; margin-bottom: 20px; position: relative; }
+.cls-bd { position: absolute; top: 10px; right: 10px; background: #eee; font-size: 11px; padding: 4px 10px; border-radius: 20px; cursor: pointer; }
+.m-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 5px; }
+.m-grid input, #m-name, #m-cal, #m-mul, #m-c { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; margin-bottom: 0; }
+.btn-add { display: block; width: 100%; padding: 15px; background: linear-gradient(135deg, var(--th), #ff8bb5); color: #fff; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 15px; }
+.btn-my { display: block; width: 100%; padding: 10px; background: var(--my); color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+.my-manual-btn { display: block; width: 100%; padding: 12px; background: var(--my); color: #fff; border: none; border-radius: 8px; font-weight: bold; margin-top: 15px; text-align: center; }
+
+/* 記録リスト */
+.f-list { margin-top: 10px; list-style: none; padding: 0; }
+.f-item { background: var(--ac); padding: 12px; border-radius: 8px; margin-bottom: 8px; font-size: 14px; }
+.act-btns { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px dashed #eec5d5; padding-top: 8px; margin-top: 8px; }
+.l-btn { border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold; color: #fff; }
+.b-re { background: var(--add); } .b-ed { background: var(--ed); } .b-del { background: var(--del); }
+
+/* フッターボタン */
+.ft-btns { margin-top: 20px; display: grid; gap: 10px; }
+.b-cp { background: #333; color: #fff; width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: bold; }
+.b-rst { background: #dfe6e9; width: 100%; padding: 10px; border-radius: 8px; border: none; font-weight: bold; color: #333; }
+.b-hst { background: #f0f2f5; color: var(--th); width: 100%; padding: 10px; border: 2px solid var(--th); border-radius: 8px; font-weight: bold; }
+
+/* 履歴詳細・グラフ */
+#hist-area { display: none; margin-top: 5px; padding-bottom: 20px; grid-column: 1 / -1; }
+.h-card { background: #fff; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.03); overflow: hidden; }
+.h-summary { padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; background: #fff; }
+.h-btns { display: flex; gap: 5px; align-items: center; }
+.h-btn { border: none; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; color: #fff; cursor: pointer; height: 32px; display: flex; align-items: center; justify-content: center; }
+.h-b-res { background: var(--add); } .h-b-cp { background: #333; } .h-b-del { background: var(--del); }
+.h-detail { display: none; background: #fafafa; border-top: 1px dashed #eee; padding: 10px; }
+.hf-row { display: flex; justify-content: space-between; font-size: 12px; padding: 6px 0; border-bottom: 1px solid #eee; color: #444; }
+
+.graph-sec { display: none; background: #fff; padding: 15px; border-radius: 12px; margin-top: 5px; border: 1px solid #ddd; grid-column: 1 / -1; }
+.g-btns { display: flex; justify-content: center; gap: 10px; margin-bottom: 10px; }
+.g-btn { padding: 5px 15px; border: 1px solid #ccc; border-radius: 20px; background: #eee; cursor: pointer; font-size: 12px; }
+.g-btn.act { background: var(--th); color: #fff; border-color: var(--th); }
+.chart-box { height: 180px; display: flex; align-items: flex-end; justify-content: space-around; padding-top: 20px; border-bottom: 1px solid #ccc; position: relative; }
+.bar-grp { width: 10%; height: 100%; position: relative; cursor: pointer; }
+.bar-col { position: absolute; bottom: 0; left: 0; width: 100%; display: flex; flex-direction: column-reverse; border-radius: 4px 4px 0 0; overflow: hidden; }
+.seg-p { background: #ff6b6b; } .seg-f { background: #feca57; } .seg-c { background: #54a0ff; }
+.target-line { position: absolute; left: 0; right: 0; border-top: 2px dashed #e74c3c; z-index: 10; pointer-events: none; }
+.target-val { position: absolute; right: 0; top: -18px; background: #e74c3c; color: #fff; font-size: 10px; padding: 2px 4px; border-radius: 4px; }
+.graph-legend { display: flex; justify-content: center; gap: 15px; font-size: 11px; margin-top: 10px; }
+.leg-item { display: flex; align-items: center; gap: 4px; }
+.leg-box { width: 10px; height: 10px; border-radius: 2px; }
+.stat-row { text-align: center; font-size: 13px; margin-top: 30px; font-weight: bold; color: #555; padding: 10px; background: #f9f9f9; border-radius: 8px; }
+
+/* ボディマネージャー */
+.body-sec { margin-top: 20px; background: #fff; border-radius: 12px; border: 2px solid var(--body); padding: 15px; }
+.body-head { text-align: center; font-weight: bold; color: var(--body); margin-bottom: 10px; cursor: pointer; }
+.b-toggle { display: flex; justify-content: center; gap: 10px; margin-bottom: 10px; }
+.b-tog-btn { padding: 6px 12px; border: 1px solid var(--body); border-radius: 20px; color: var(--body); background: #fff; font-size: 12px; cursor: pointer; }
+.b-tog-btn.act { background: var(--body); color: #fff; }
+.body-legend-box { font-size: 11px; margin-bottom: 10px; background: #f9f9f9; padding: 8px; border-radius: 6px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.bl-item { display: flex; align-items: center; gap: 4px; }
+.bl-dot { width: 8px; height: 8px; border-radius: 50%; }
+.body-graph-box { height: 200px; position: relative; border-bottom: 1px solid #ccc; margin-bottom: 25px; padding-bottom: 5px; }
+.body-inp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; background: #f9f9f9; padding: 10px; border-radius: 8px; }
+.body-inp-item { display: flex; flex-direction: column; }
+.body-inp-item span { font-size: 10px; color: #666; margin-bottom: 2px; }
+.body-inp-item input { padding: 8px; border: 1px solid #ddd; border-radius: 4px; text-align: center; }
+.btn-body-rec { width: 100%; background: var(--body); color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: bold; margin-top: 10px; cursor: pointer; }
+.b-hist-row { display: flex; justify-content: space-between; padding: 12px 8px; border-bottom: 1px solid #eee; font-size: 12px; cursor: pointer; }
+.b-del-btn { background: #ccc; color: #fff; border: none; padding: 4px 10px; border-radius: 4px; margin-left: 10px; cursor: pointer; }
+/* SVG関連 */
+svg { width: 100%; height: 100%; overflow: visible; }
+.g-line { fill: none; stroke-width: 2; stroke-linecap: round; }
+.g-dot { r: 4; cursor: pointer; stroke: #fff; stroke-width: 1; }
+.g-label { font-size: 10px; font-weight: bold; }
+.g-pop { position: absolute; background: rgba(0,0,0,0.8); color: #fff; padding: 5px; border-radius: 4px; font-size: 11px; pointer-events: none; display: none; white-space: nowrap; z-index: 100; top: 0; left: 0; }
+
+/* バックアップ・インフォ */
+.backup-sec { margin-top: 30px; padding-top: 20px; border-top: 1px dashed #ccc; text-align: center; }
+.b-bk { background: #34495e; color: #fff; padding: 8px 15px; border-radius: 4px; border: none; cursor: pointer; font-size: 12px; margin: 5px; }
+.info-area { margin-top: 40px; border-top: 4px solid #eee; padding-top: 20px; }
+.info-box { background: #fff; border-radius: 8px; margin-bottom: 10px; border: 1px solid #ddd; overflow: hidden; }
+.info-sum { padding: 12px; font-weight: bold; color: #555; background: #f9f9f9; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+.info-con { padding: 15px; font-size: 13px; line-height: 1.7; color: #444; border-top: 1px solid #eee; }
+
+/* モーダル */
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; }
+.modal-box { background: #fff; padding: 20px; border-radius: 12px; width: 80%; max-width: 300px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+.modal-title { font-weight: bold; margin-bottom: 15px; display: block; color: var(--th); }
+.modal-date { padding: 10px; font-size: 16px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 20px; width: 100%; box-sizing: border-box; }
+.modal-btns { display: flex; gap: 10px; }
+.m-btn { flex: 1; padding: 10px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+.m-save { background: var(--th); color: #fff; }
+.m-cancel { background: #eee; color: #333; }
+
+/* ▼▼▼ チャット機能デザイン (Version 10) ▼▼▼ */
+#tama-chat-btn {
+    position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    background-color: var(--th); color: #fff;
+    padding: 12px 24px; border-radius: 50px; 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    cursor: pointer; font-weight: bold; font-size: 16px; transition: all 0.2s ease;
+}
+#tama-chat-btn img {
+    width: 32px; height: 32px; border-radius: 50%;
+    margin-right: 10px; border: 2px solid white; background-color: #fff;
+}
+#tama-chat-btn:active { transform: scale(0.95); }
+
+#tama-chat-window {
+    position: fixed; bottom: 85px; right: 20px;
+    width: 350px; height: 500px; max-height: 70vh;
+    background-color: #fff; border-radius: 12px;
+    box-shadow: 0 5px 25px rgba(0,0,0,0.2); z-index: 10000;
+    display: none; flex-direction: column; overflow: hidden; border: 1px solid #ddd;
+}
+.chat-header {
+    background-color: var(--th); color: white; padding: 15px;
+    display: flex; justify-content: space-between; align-items: center; font-weight: bold;
+}
+.ch-close { cursor: pointer; font-size: 1.2rem; }
+.chat-body {
+    flex: 1; padding: 15px; overflow-y: auto; background-color: #f5f6fa;
+    display: flex; flex-direction: column; gap: 15px;
+}
+.msg { display: flex; align-items: flex-end; gap: 10px; max-width: 100%; }
+.msg.user { flex-direction: row-reverse; }
+.msg .icon img {
+    width: 40px; height: 40px; border-radius: 50%;
+    border: 2px solid #fff; background: #fff;
+}
+.msg.user .icon { display: none; }
+.msg .text {
+    background: #fff; padding: 10px 14px; border-radius: 18px; border-top-left-radius: 2px;
+    font-size: 0.95rem; line-height: 1.5; box-shadow: 0 1px 2px rgba(0,0,0,0.1); max-width: 80%; white-space: pre-wrap;
+}
+.msg.user .text {
+    background: var(--th); color: white; border-top-left-radius: 18px; border-top-right-radius: 2px;
 }
 
-function selMyFd(i) {
-    selIdx = -1; editIdx = -1;
-    document.getElementById('btn-reg').textContent = "リストに追加する";
-    clsList(); document.getElementById('amt-area').style.display = 'block';
-    const d = myFoods[i];
-    document.getElementById('rice-btns').style.display = 'none';
-    const p = document.getElementById('pst-btns'); p.innerHTML = '';
-    [0.5, 1, 2, 3].forEach(v => {
-        const b = document.createElement('div'); b.className = 'a-btn';
-        b.innerHTML = `<span>${v}個</span>`;
-        b.onclick = () => { document.querySelectorAll('.a-btn').forEach(x => x.classList.remove('sel')); b.classList.add('sel'); document.getElementById('m-mul').value = v; calcM(); };
-        p.appendChild(b);
-    });
-    document.getElementById('reg-bd').style.display = 'block';
-    document.getElementById('m-name').value = d.N;
-    document.getElementById('m-p').value = d.P; document.getElementById('m-f').value = d.F; document.getElementById('m-c').value = d.C;
-    document.getElementById('m-mul').value = 1; document.getElementById('m-cal').value = d.Cal;
-    document.getElementById('pv-bar').style.display = 'block';
-    document.getElementById('pv-name').textContent = d.N;
-    document.getElementById('pv-stat').textContent = `${d.Cal}kcal (P${d.P} F${d.F} C${d.C})`;
-    setTimeout(() => document.getElementById('amt-area').scrollIntoView({ behavior: 'smooth' }), 100);
+/* ▼ マイクボタン追加によるレイアウト調整 ▼ */
+.chat-footer {
+    padding: 10px; background: #fff; border-top: 1px solid #eee; display: flex; gap: 8px; align-items: center;
+}
+/* マイクボタンのデザイン */
+#mic-btn {
+    background: #f0f2f5; color: #555; border-radius: 50%; width: 40px; height: 40px; border: none;
+    display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer;
+    flex-shrink: 0; transition: all 0.3s ease;
+}
+/* 録音中のマイクボタンアニメーション（赤く光る） */
+#mic-btn.recording {
+    background: #ff4757; color: white;
+    animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 71, 87, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
 }
 
-function regMyFood() {
-    const n = document.getElementById('m-name').value;
-    if (!n) return alert("食品名を入力してください");
-    const m = parseNum(document.getElementById('m-mul').value) || 1;
-    myFoods.push({
-        N: n,
-        P: parseFloat(((parseNum(document.getElementById('m-p').value)||0)/m).toFixed(1)),
-        F: parseFloat(((parseNum(document.getElementById('m-f').value)||0)/m).toFixed(1)),
-        C: parseFloat(((parseNum(document.getElementById('m-c').value)||0)/m).toFixed(1)),
-        Cal: Math.round((parseNum(document.getElementById('m-cal').value)||0)/m)
-    });
-    localStorage.setItem('tf_my', JSON.stringify(myFoods));
-    alert(`「${n}」をMy食品に登録しました！`);
+#chat-input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 20px; outline: none; }
+#chat-input:disabled { background-color: #f9f9f9; color: #999; cursor: not-allowed; }
+
+.chat-footer #chat-send {
+    padding: 0 16px; height: 40px; border-radius: 20px; background: var(--th); color: white; font-weight: bold; border: none; cursor: pointer; transition: 0.3s;
 }
+.chat-footer #chat-send:disabled { background-color: #ccc; cursor: not-allowed; }
 
-function delMyFood(i) { if (!confirm(`「${myFoods[i].N}」を削除しますか？`)) return; myFoods.splice(i, 1); localStorage.setItem('tf_my', JSON.stringify(myFoods)); const btn = document.querySelector('.my-cat-btn'); shwList('📂', btn); }
-
-function mkBtn(lbl, v, par, subLbl = "") {
-    const b = document.createElement('div'); b.className = 'a-btn';
-    const unit = DB[selIdx][3].includes('g') ? 'g' : '';
-    b.innerHTML = (subLbl ? `<span class="sub-label">${subLbl}</span>` : '') + `<span>${lbl}${unit}</span>`;
-    b.onclick = () => { document.querySelectorAll('.a-btn').forEach(x => x.classList.remove('sel')); b.classList.add('sel'); updBd(v); };
-    par.appendChild(b);
+@media (max-width: 600px) {
+    #tama-chat-window { width: 92%; right: 4%; bottom: 85px; }
 }
+</style>
+</head>
+<body>
 
-function updBd(v) {
-    if (selIdx < 0) return;
-    const d = DB[selIdx]; v = parseNum(v);
-    let m = 1; if (d[3].includes('g')) { m = v / parseFloat(d[3]); } else { m = v; }
-    document.getElementById('m-mul').value = parseFloat(m.toFixed(2));
-    const P = d[4] * m, F = d[5] * m, C = d[6] * m, Cal = Math.round(d[7] * m);
-    document.getElementById('pv-bar').style.display = 'block';
-    const dispUnit = d[3].includes('g') ? 'g' : (d[3].includes('杯') ? '杯' : '個');
-    document.getElementById('pv-name').textContent = `${d[1]} (${v}${dispUnit})`;
-    document.getElementById('pv-stat').textContent = `${Cal}kcal (P${P.toFixed(1)} F${F.toFixed(1)} C${C.toFixed(1)})`;
-    document.getElementById('m-name').value = d[1];
-    document.getElementById('m-p').value = d[4]; document.getElementById('m-f').value = d[5]; document.getElementById('m-c').value = d[6];
-    document.getElementById('m-cal').value = Cal;
-}
+<div class="header">
+    <h1>
+        <img src="tama_chara_mini.png" alt="キャラ" style="height:40px; vertical-align:middle; margin-right:10px; border-radius:50%; border:2px solid #fff;">
+        たまフィットPFC
+    </h1>
+</div>
 
-function togBd() { const b = document.getElementById('reg-bd'); b.style.display = b.style.display === 'block' ? 'none' : 'block'; }
-function clsBd() { const bd = document.getElementById('reg-bd'); bd.style.display = 'none'; bd.classList.remove('editing'); editIdx = -1; document.getElementById('btn-reg').textContent = "リストに追加する"; }
+<div class="container">
+    <div class="alert-box">
+        <span class="alert-title">⚠️ 随時アップデート中</span>
+        入力内容はブラウザに保存されますが、念のためスクショやテキストコピーでの保存を推奨します。<br>
+        <strong>【仕様変更】</strong>日付が変わっても自動リセットされなくなりました。「保存してリセット」ボタンで日付を選んで保存・リセットできます。
+    </div>
 
-function openMan() { 
-    selIdx = -1; editIdx = -1;
-    document.getElementById('btn-reg').textContent = "リストに追加する";
-    document.getElementById('amt-area').style.display = 'block'; 
-    document.getElementById('reg-bd').style.display = 'block';
-    setTimeout(() => document.getElementById('reg-bd').scrollIntoView({ behavior: 'smooth' }), 100);
-}
-
-function calcM() {
-    const p = parseNum(document.getElementById('m-p').value);
-    const f = parseNum(document.getElementById('m-f').value);
-    const c = parseNum(document.getElementById('m-c').value);
-    const m = parseNum(document.getElementById('m-mul').value) || 1;
-    const cal = Math.round((p * 4 + f * 9 + c * 4) * m);
-    document.getElementById('m-cal').value = cal;
-    if (selIdx < 0) document.getElementById('pv-name').textContent = document.getElementById('m-name').value;
-}
-
-function addM() {
-    const n = document.getElementById('m-name').value || "未入力";
-    const m = parseNum(document.getElementById('m-mul').value) || 1;
-    const p = parseNum(document.getElementById('m-p').value) * m;
-    const f = parseNum(document.getElementById('m-f').value) * m;
-    const c = parseNum(document.getElementById('m-c').value) * m;
-    const cal = parseNum(document.getElementById('m-cal').value) || (p * 4 + f * 9 + c * 4);
-    const unit = (editIdx >= 0) ? lst[editIdx].U : (selIdx >= 0 ? DB[selIdx][3] : "-");
-    const newData = { N: n, P: p, F: f, C: c, Cal: Math.round(cal), U: unit };
-    if (editIdx >= 0) { lst[editIdx] = newData; editIdx = -1; document.getElementById('btn-reg').textContent = "リストに追加する"; document.getElementById('reg-bd').classList.remove('editing'); } 
-    else { lst.push(newData); }
-    sv(); ren(); upd();
-    document.getElementById('amt-area').style.display = 'none'; clsBd();
-    document.getElementById('m-name').value = ''; document.getElementById('m-cal').value = '';
-    window.scrollTo(0, 0); 
-}
-
-function ren() {
-    const ul = document.getElementById('f-list-ul'); ul.innerHTML = "";
-    lst.forEach((x, i) => {
-        const li = document.createElement('li'); li.className = 'f-item';
-        li.innerHTML = `
-            <div><strong>${x.N}</strong> <small>${x.U}</small><br>
-            <span style="font-size:12px;color:#666">${x.Cal}kcal (P${x.P.toFixed(1)} F${x.F.toFixed(1)} C${x.C.toFixed(1)})</span></div>
-            <div class="act-btns">
-                <button class="l-btn b-re" onclick="reAdd(${i})">複製</button>
-                <button class="l-btn b-ed" onclick="ed(${i})">編集</button>
-                <button class="l-btn b-del" onclick="del(${i})">消去</button>
-            </div>`;
-        ul.appendChild(li);
-    });
-    document.getElementById('tot-cal').textContent = lst.reduce((a, b) => a + b.Cal, 0);
-}
-
-function del(i) { lst.splice(i, 1); sv(); ren(); upd(); }
-function reAdd(i) { lst.push({ ...lst[i] }); sv(); ren(); upd(); }
-function ed(i) {
-    const x = lst[i]; editIdx = i; selIdx = -1;
-    document.getElementById('amt-area').style.display = 'block';
-    const bd = document.getElementById('reg-bd'); bd.style.display = 'block'; bd.classList.add('editing');
-    document.getElementById('btn-reg').textContent = "更新して完了";
-    document.getElementById('m-name').value = x.N;
-    document.getElementById('m-p').value = x.P; document.getElementById('m-f').value = x.F; document.getElementById('m-c').value = x.C;
-    document.getElementById('m-mul').value = 1; document.getElementById('m-cal').value = x.Cal;
-    setTimeout(() => bd.scrollIntoView({ behavior: 'smooth' }), 100);
-}
-
-function sv() { localStorage.setItem('tf_dat', JSON.stringify(lst)); }
-
-function rst() { document.getElementById('reset-modal').style.display = 'flex'; }
-function closeResetModal() { document.getElementById('reset-modal').style.display = 'none'; }
-function confirmReset() {
-    const d = document.getElementById('reset-date').value;
-    if (!d) return alert("日付を選択してください");
-    const dateObj = new Date(d); const dateStr = dateObj.toLocaleDateString();
-    const currentList = JSON.parse(JSON.stringify(lst));
-    svHist(dateStr, currentList);
-    lst = []; sv(); ren(); upd();
-    closeResetModal();
-    alert(`${dateStr} の記録として保存し、リセットしました。`);
-}
-
-function svHist(d, l) {
-    const i = hist.findIndex(h => h.d === d); if (i >= 0) hist.splice(i, 1); 
-    const t = { Cal: 0, P: 0, F: 0, C: 0 }; 
-    l.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; });
-    hist.unshift({ d: d, s: t, l: l }); if (hist.length > 30) hist.pop(); 
-    localStorage.setItem('tf_hist', JSON.stringify(hist));
-}
-function togHist() { const a = document.getElementById('hist-area'); if (a.style.display === 'block') a.style.display = 'none'; else { a.style.display = 'block'; rHist(); } }
-
-function rHist() {
-    const d = document.getElementById('h-list'); d.innerHTML = ""; if (!hist.length) d.innerHTML = "<p style='text-align:center'>履歴なし</p>";
-    hist.forEach((h, i) => {
-        const foodsHtml = h.l.map(f => `<div class="hf-row"><span class="hf-name">${f.N}</span><span class="hf-vals">${f.Cal}kcal (P${f.P} F${f.F} C${f.C})</span></div>`).join('');
-        const c = document.createElement('div'); c.className = 'h-card-wrap';
-        c.innerHTML = `
-            <div class="h-card">
-                <div class="h-summary" onclick="document.getElementById('h-det-${i}').style.display = document.getElementById('h-det-${i}').style.display === 'block' ? 'none' : 'block'">
-                    <div class="h-info">
-                        <div><span class="h-date">${h.d}</span> <span class="h-meta">${h.s.Cal}kcal</span></div>
-                        <div class="h-meta" style="font-size:10px;">(P${h.s.P.toFixed(0)} F${h.s.F.toFixed(0)} C${h.s.C.toFixed(0)})</div>
-                        <div class="h-toggle-hint">▼ 詳細</div>
-                    </div>
-                    <div class="h-btns">
-                        <button class="h-btn h-b-res" onclick="event.stopPropagation(); resHist(${i})">復元</button>
-                        <button class="h-btn h-b-cp" onclick="event.stopPropagation(); cpHist(${i})">テキストへコピー</button>
-                        <button class="h-btn h-b-del" onclick="event.stopPropagation(); delHist(${i})">削除</button>
-                    </div>
+    <div class="tgt-sec">
+        <div class="tgt-tog" onclick="toggleTgt()">⚙️ 目標設定: <span id="tgt-disp">設定なし</span> ▼</div>
+        <div class="tgt-btns" id="tgt-btns"></div>
+        <div id="cust-tgt" style="display:none;">
+            <div class="cust-row">
+                <input type="text" inputmode="decimal" id="cust-cal" placeholder="Cal">
+                <select id="pfc-mode" class="pfc-sel">
+                    <option value="std">標準 (3:2:5)</option>
+                    <option value="lowfat">ローファット (3:1:6)</option>
+                    <option value="muscle">筋肥大 (4:2:4)</option>
+                    <option value="keto">ケト (3:6:1)</option>
+                </select>
+                <button class="cust-btn" onclick="applyCust()">設定</button>
+            </div>
+            <span style="font-size:10px;color:#666">自由な値とバランスを設定</span>
+        </div>
+    </div>
+    <div class="dash">
+        <div class="dash-t">今日の目標 <span id="pfc-ratio-disp">(3:2:5)</span></div>
+        <div class="mtr"><div class="mtr-l"><span>Cal</span><span id="rem-cal" class="rem"></span></div><div class="bar-bg"><div id="bar-cal" class="bar"></div></div></div>
+        <div class="mtr"><div class="mtr-l"><span>P</span><span id="rem-p" class="rem"></span></div><div class="bar-bg"><div id="bar-p" class="bar"></div></div></div>
+        <div class="mtr"><div class="mtr-l"><span>F</span><span id="rem-f" class="rem"></span></div><div class="bar-bg"><div id="bar-f" class="bar"></div></div></div>
+        <div class="mtr"><div class="mtr-l"><span>C</span><span id="rem-c" class="rem"></span></div><div class="bar-bg"><div id="bar-c" class="bar"></div></div></div>
+    </div>
+    <div class="inp-sec">
+        <div class="s-box"><span class="s-icon">🔍</span><input type="text" class="s-inp" id="s-inp" placeholder="検索" oninput="filterF()"><div class="s-res" id="s-res"></div></div>
+        <label>1. カテゴリを選ぶ</label>
+        <div class="cat-grp" id="cat-btns"></div>
+        <div id="f-list"></div>
+        <div id="amt-area">
+            <label style="margin-top:10px;">2. 量を選ぶ</label>
+            <div class="amt-btns rice" id="rice-btns" style="display:none;"></div>
+            <div class="amt-btns" id="pst-btns"></div>
+            <div id="pv-bar" class="pv-bar" style="display:none;" onclick="togBd()">
+                <div id="pv-name" style="font-weight:bold;color:var(--th)"></div>
+                <div id="pv-stat" style="font-size:13px;font-weight:bold;"></div>
+                <div style="font-size:10px;color:#888;text-align:right;">🖊️タップして詳細・微調整</div>
+            </div>
+            <div id="reg-bd" class="reg-bd">
+                <div class="cls-bd" onclick="clsBd()">✕ 閉じる</div>
+                <div style="font-size:11px;color:#666">食品名</div><input type="text" id="m-name">
+                <div class="m-grid">
+                    <div><div style="font-size:11px;color:#666">P</div><input type="text" inputmode="decimal" id="m-p" oninput="calcM()"></div>
+                    <div><div style="font-size:11px;color:#666">F</div><input type="text" inputmode="decimal" id="m-f" oninput="calcM()"></div>
                 </div>
-                <div id="h-det-${i}" class="h-detail">${foodsHtml}</div>
-            </div>`;
-        d.appendChild(c);
-    });
-}
+                <div style="margin-top:5px"><div style="font-size:11px;color:#666">C</div><input type="text" inputmode="decimal" id="m-c" oninput="calcM()"></div>
+                <div style="margin-top:5px;border-top:1px dashed #ddd;padding-top:5px">
+                    <div style="font-size:11px;color:var(--th);font-weight:bold">倍率・個数</div><input type="text" inputmode="decimal" id="m-mul" value="1" style="text-align:center;font-weight:bold" oninput="calcM()">
+                </div>
+                <div style="font-size:11px;color:#666">Cal (自動/上書き)</div><input type="text" inputmode="decimal" id="m-cal" style="background:#f9f9f9;font-weight:bold" oninput="calcM()">
+                <button class="btn-my" onclick="regMyFood()">💾 この内容をMy食品に登録</button>
+            </div>
+            <button id="btn-reg" class="btn-add" onclick="addM()">リストに追加する</button>
+        </div>
+    </div>
+    <button class="my-manual-btn" onclick="openMan()">▼ 完全手入力・My食品登録</button>
+    <h3 style="color:var(--th);text-align:center;">今日の記録</h3>
+    <ul class="f-list" id="f-list-ul"></ul>
+    <div style="text-align:right;font-size:18px;">合計: <span id="tot-cal" style="color:var(--th);font-weight:bold;">0</span> kcal</div>
+    
+    <div class="ft-btns">
+        <button class="b-cp" onclick="cpRes()">📋 結果をテキストにコピー</button>
+        <button class="b-rst" onclick="rst()">📅 記録を保存してリセット</button>
+        
+        <button class="b-hst" onclick="togHist()">📅 履歴を見る</button>
+        <div id="hist-area"><p style="text-align:center;font-weight:bold;">【過去の記録】</p><div id="h-list"></div></div>
+        
+        <button class="b-hst" style="background:#fff;border-color:#666;color:#666" onclick="togGraph()">📊 統計・グラフ</button>
+        <div id="graph-area" class="graph-sec">
+            <div class="g-btns">
+                <button class="g-btn act" onclick="drawGraph('week',this)">週間</button>
+                <button class="g-btn" onclick="drawGraph('month',this)">月間</button>
+            </div>
+            <div class="graph-legend">
+                <div class="leg-item"><div class="leg-box seg-p"></div>P</div>
+                <div class="leg-item"><div class="leg-box seg-f"></div>F</div>
+                <div class="leg-item"><div class="leg-box seg-c"></div>C</div>
+            </div>
+            <div id="chart-box" class="chart-box"></div>
+            <div id="stat-txt" class="stat-row">グラフの棒をタップで詳細表示</div>
+        </div>
+    </div>
 
-function resHist(i) { if (!confirm("追加しますか？")) return; lst = lst.concat(hist[i].l); sv(); ren(); upd(); alert("追加しました"); }
-function cpHist(i) { const h = hist[i]; let t = `【${h.d}】\n`; h.l.forEach(x => t += `${x.N}\n`); navigator.clipboard.writeText(t).then(() => alert("コピー完了")); }
-function delHist(i) { if (!confirm("削除しますか？")) return; hist.splice(i, 1); localStorage.setItem('tf_hist', JSON.stringify(hist)); rHist(); }
+    <div class="body-sec">
+        <div class="body-head" onclick="toggleBody()">📉 体組成・ボディメイク ▼</div>
+        <div id="body-content" style="display:none;">
+            <div class="b-toggle">
+                <div class="b-tog-btn act" onclick="drawBodyGraph('A', this)">モードA<br>(体重・脂肪率・ウエスト)</div>
+                <div class="b-tog-btn" onclick="drawBodyGraph('B', this)">モードB<br>(除脂肪・脂肪量)</div>
+            </div>
+            <div id="body-legend" class="body-legend-box"></div>
+            
+            <div id="body-chart-area" class="body-graph-box"></div>
+            <div id="body-pop" class="g-pop"></div>
+            
+            <div class="body-inp-grid">
+                <div class="body-inp-item"><span>日付</span><input type="date" id="b-date"></div>
+                <div class="body-inp-item"><span>体重(kg)</span><input type="text" inputmode="decimal" id="b-weight" placeholder="60.0"></div>
+                <div class="body-inp-item"><span>体脂肪率(%)</span><input type="text" inputmode="decimal" id="b-fat" placeholder="20.0"></div>
+                <div class="body-inp-item"><span>ウエスト(cm)</span><input type="text" inputmode="decimal" id="b-waist" placeholder="70.0"></div>
+            </div>
+            <button class="btn-body-rec" onclick="saveBody()">記録する</button>
+            <p style="font-size:10px;color:#666;text-align:center;">※入力は任意。体脂肪率を入れるとモードBが計算されます。</p>
+            
+            <div style="margin-top:20px;border-top:1px dashed #ccc;padding-top:10px;">
+                <div style="text-align:center;font-size:12px;color:#666;margin-bottom:5px;">履歴一覧 (タップで修正)</div>
+                <div id="body-hist-list" style="max-height:150px;overflow-y:auto;background:#f9f9f9;border-radius:8px;"></div>
+            </div>
+        </div>
+    </div>
 
-function togFav(i, el) { const x = fav.indexOf(i); if (x >= 0) fav.splice(x, 1); else fav.push(i); localStorage.setItem('tf_fav', JSON.stringify(fav)); el.classList.toggle('act'); }
+    <div class="info-area">
+        <details class="info-box">
+            <summary class="info-sum">📖 使い方・便利機能</summary>
+            <div class="info-con">
+                <h4>1. リセット機能の変更</h4><p>日付が変わってもデータは消えません。「記録を保存してリセット」ボタンを押し、日付を選んで保存してください。</p>
+                <h4>2. 体組成管理</h4><p>体重、体脂肪、ウエストの推移を記録できます。グラフには日付や数値が表示され、過去データの修正も可能です。</p>
+                <h4>3. ✨ 音声入力のコツ</h4><p>マイクボタンを押し、話し終わったらもう一度マイクをタップするとスムーズに送信できるたま！</p>
+            </div>
+        </details>
+        <details class="info-box">
+            <summary class="info-sum">🔔 アップデート履歴</summary>
+            <div class="info-con">
+                <ul>
+                    <li><strong>Ver 4.2 (Latest)</strong><span class="ver-badge">最新</span><br>
+                    ・✨ 🎙️ 音声入力の安定性を大幅改善（連続聞き取りに対応）<br>
+                    ・✨ 入力中の文字をリアルタイムで表示するように進化<br>
+                    </li>
+                </ul>
+            </div>
+        </details>
+    </div>
 
-function filterF() {
-    const v = document.getElementById('s-inp').value; const r = document.getElementById('s-res'); r.innerHTML = ""; if (!v) { r.style.display = 'none'; return; }
-    r.style.display = 'block';
-    DB.forEach((x, i) => { if (x[1].startsWith(v) || x[2].split(' ').some(k => k.startsWith(v))) { const d = document.createElement('div'); d.className = 's-item'; d.innerHTML = `<strong>${x[1]}</strong>`; d.onclick = () => { selFd(i); r.style.display = 'none'; }; r.appendChild(d); } });
-}
+    <div class="backup-sec">
+        <button class="b-bk" onclick="exportData()">📤 データを保存</button>
+        <button class="b-bk" onclick="document.getElementById('imp-file').click()">📥 データを復元</button>
+        <input type="file" id="imp-file" style="display:none" onchange="importData(this)">
+    </div>
+</div>
 
-function mkTgt() {
-    const b = document.getElementById('tgt-btns'); b.innerHTML = "";
-    [{v:1200,l:"女性小食"},{v:1600,l:"👩女性減量"},{v:2000,l:"👨男性減量"},{v:2400,l:"活動・増量"}].forEach(t => {
-        const d = document.createElement('div'); d.className = 'tg-btn ' + (TG.cal === t.v ? 'act' : '');
-        d.innerHTML = `<span style="font-size:9px;color:#666">${t.l}</span><strong>${t.v}</strong>`;
-        d.onclick = () => { TG = { cal: t.v, ...calcPFC(t.v), label: t.l, mode: TG.mode }; localStorage.setItem('tf_tg', JSON.stringify(TG)); upd(); mkTgt(); };
-        b.appendChild(d);
-    });
-}
-function toggleTgt() { const b = document.getElementById('tgt-btns'); const c = document.getElementById('cust-tgt'); const d = (b.style.display === 'grid'); b.style.display = d ? 'none' : 'grid'; c.style.display = d ? 'none' : 'flex'; }
+<div id="reset-modal" class="modal-overlay">
+    <div class="modal-box">
+        <span class="modal-title">記録を保存して<br>リセットしますか？</span>
+        <p style="font-size:12px;color:#666;margin-bottom:10px;">どの日付の記録として保存しますか？</p>
+        <input type="date" id="reset-date" class="modal-date">
+        <div class="modal-btns">
+            <button class="m-btn m-cancel" onclick="closeResetModal()">キャンセル</button>
+            <button class="m-btn m-save" onclick="confirmReset()">保存してリセット</button>
+        </div>
+    </div>
+</div>
 
-function calcPFC(c) {
-    let p=0, f=0;
-    if (TG.mode === "lowfat") { p = c * 0.3 / 4; f = c * 0.1 / 9; }
-    else if (TG.mode === "muscle") { p = c * 0.4 / 4; f = c * 0.2 / 9; }
-    else if (TG.mode === "keto") { p = c * 0.3 / 4; f = c * 0.6 / 9; }
-    else { p = c * 0.3 / 4; f = c * 0.2 / 9; }
-    return { p: p, f: f, c: (c - (p * 4 + f * 9)) / 4 };
-}
+<div id="tama-chat-btn" onclick="toggleChat()">
+    <img src="new_tama.png" alt="たまちゃん">
+    <span>たまちゃんに相談</span>
+</div>
 
-function upd() {
-    const t = { Cal: 0, P: 0, F: 0, C: 0 }; lst.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; });
-    const setBar = (k, v, tg, u) => {
-        const r = tg - v; const el = document.getElementById('bar-' + k.toLowerCase()); const tx = document.getElementById('rem-' + k.toLowerCase());
-        el.style.width = Math.min((v / tg) * 100, 100) + '%'; el.className = 'bar ' + (r < 0 ? 'ov' : '');
-        tx.className = 'rem ' + (r < 0 ? 'ov' : ''); tx.textContent = r < 0 ? `+${Math.abs(r).toFixed(0)}${u}` : `残${r.toFixed(0)}${u}`;
-    };
-    setBar('Cal', t.Cal, TG.cal, 'kcal'); setBar('P', t.P, TG.p, 'g'); setBar('F', t.F, TG.f, 'g'); setBar('C', t.C, TG.c, 'g');
-    document.getElementById('tgt-disp').textContent = `${TG.cal}kcal`;
-}
+<div id="tama-chat-window">
+    <div class="chat-header">
+        <div class="ch-title">🥚 たまちゃんコーチ</div>
+        <div class="ch-close" onclick="toggleChat()">×</div>
+    </div>
+    <div class="chat-body" id="chat-messages">
+        <div class="msg bot">
+            <div class="icon"><img src="new_tama.png"></div>
+            <div class="text">調子はどうたま？<br>食事の相談や、今のPFCバランスについて何でも聞いてくれたま！</div>
+        </div>
+    </div>
+    <div class="chat-footer">
+        <button id="mic-btn" onclick="toggleMic()" title="音声で入力">🎤</button>
+        <input type="text" id="chat-input" placeholder="例: 夜ご飯なにがいい？" onkeypress="if(event.key === 'Enter' && !event.isComposing) sendTamaChat()">
+        <button id="chat-send" onclick="sendTamaChat()">送信</button>
+    </div>
+</div>
 
-function applyCust() {
-    const c = parseNum(document.getElementById('cust-cal').value) || 2000;
-    TG = { cal: c, ...calcPFC(c), label: "カスタム", mode: document.getElementById('pfc-mode').value };
-    localStorage.setItem('tf_tg', JSON.stringify(TG)); upd(); toggleTgt(); mkTgt(); 
-}
+<script src="database.js"></script>
+<script src="tamachan-data.js"></script>
+<script src="app.js"></script>
 
-function cpRes() { let t = `【${new Date().toLocaleDateString()}】\n`; lst.forEach(x => t += `${x.N} ${x.Cal}kcal\n`); navigator.clipboard.writeText(t).then(() => alert("コピー完了")); }
-
-function togGraph() { const a = document.getElementById('graph-area'); if (a.style.display === 'block') a.style.display = 'none'; else { a.style.display = 'block'; drawGraph('week', document.querySelector('.g-btn')); } }
-
-function drawGraph(type, btn) {
-    document.querySelectorAll('.g-btn').forEach(b => b.classList.remove('act')); if(btn) btn.classList.add('act');
-    const box = document.getElementById('chart-box'); box.innerHTML = '';
-    let data = []; const today = new Date();
-    if (type === 'week') {
-        for (let i = 6; i >= 0; i--) {
-            const d = new Date(today); d.setDate(today.getDate() - i); const ds = d.toLocaleDateString();
-            const log = hist.find(h => h.d === ds); let s = log ? log.s : { Cal:0, P:0, F:0, C:0 };
-            if (i === 0 && lst.length > 0) { const t = { Cal: 0, P: 0, F: 0, C: 0 }; lst.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; }); s = t; }
-            data.push({ label: `${d.getDate()}日`, s: s, d: ds });
-        }
-    } else { data = hist.slice(0, 30).reverse().map(h => ({ label: h.d.split('/')[2], s: h.s, d: h.d })); }
-    if (data.length === 0) { box.innerHTML = '<p style="margin:auto;color:#ccc">データなし</p>'; return; }
-    const total = data.reduce((acc, cur) => acc + cur.s.Cal, 0);
-    const avg = data.length > 0 ? Math.round(total / data.length) : 0;
-    document.getElementById('stat-txt').innerHTML = `期間平均: ${avg}kcal <span style="font-size:10px;color:#999">(合計: ${total}kcal)</span>`;
-    const maxVal = Math.max(...data.map(d => d.s.Cal), TG.cal) || 2000;
-    const line = document.createElement('div'); line.className = 'target-line'; line.style.bottom = (TG.cal/maxVal)*100 + '%'; line.innerHTML = `<span class="target-val">${TG.cal}</span>`; box.appendChild(line);
-    data.forEach(d => {
-        const h = Math.min((d.s.Cal / maxVal) * 100, 100);
-        const grp = document.createElement('div'); grp.className = 'bar-grp';
-        const col = document.createElement('div'); col.className = 'bar-col'; col.style.height = h + '%';
-        const totalCal = (d.s.P*4 + d.s.F*9 + d.s.C*4) || 1;
-        col.innerHTML = `<div class="seg-p" style="height:${(d.s.P*4/totalCal)*100}%;"></div><div class="seg-f" style="height:${(d.s.F*9/totalCal)*100}%;"></div><div class="seg-c" style="height:${(d.s.C*4/totalCal)*100}%;"></div>`;
-        grp.innerHTML = `<span class="bar-lbl">${d.label}</span>`; grp.appendChild(col);
-        grp.onclick = () => { document.getElementById('stat-txt').innerHTML = `${d.d}<br>総摂取:${d.s.Cal}kcal<br><span style="color:#e74c3c">P:${d.s.P.toFixed(1)}</span> <span style="color:#f1c40f">F:${d.s.F.toFixed(1)}</span> <span style="color:#3498db">C:${d.s.C.toFixed(1)}</span>`; };
-        box.appendChild(grp);
-    });
-}
-
-function toggleBody() { const c = document.getElementById('body-content'); c.style.display = c.style.display === 'block' ? 'none' : 'block'; if(c.style.display === 'block') { drawBodyGraph('A', document.querySelector('.b-tog-btn')); renderBodyList(); } }
-function saveBody() {
-    const d = document.getElementById('b-date').value; const w = parseNum(document.getElementById('b-weight').value);
-    const f = parseNum(document.getElementById('b-fat').value); const waist = parseNum(document.getElementById('b-waist').value);
-    if(!d || (!w && !f && !waist)) return alert("日付と数値を入力してください");
-    const idx = bodyData.findIndex(x => x.date === d); const rec = { date: d, w: w, f: f, waist: waist };
-    if(idx >= 0) bodyData[idx] = rec; else bodyData.push(rec);
-    bodyData.sort((a,b) => new Date(a.date) - new Date(b.date)); localStorage.setItem('tf_body', JSON.stringify(bodyData));
-    alert("記録しました！"); renderBodyList(); drawBodyGraph('A', document.querySelector('.b-tog-btn'));
-}
-function renderBodyList() {
-    const d = document.getElementById('body-hist-list');
-    d.innerHTML = bodyData.slice().reverse().map((x, i) => {
-        const originalIdx = bodyData.length - 1 - i;
-        return `<div class="b-hist-row" onclick="editBody(${originalIdx})"><span>${x.date}</span><span>${x.w?x.w+'kg':'-'} / ${x.f?x.f+'%':'-'} / ${x.waist?x.waist+'cm':'-'}</span><button class="b-del-btn" onclick="event.stopPropagation(); deleteBody(${originalIdx})">削除</button></div>`;
-    }).join('');
-}
-function drawBodyGraph(mode, btn) {
-    document.querySelectorAll('.b-tog-btn').forEach(b => b.classList.remove('act')); if(btn) btn.classList.add('act');
-    const box = document.getElementById('body-chart-area'); box.innerHTML = ''; const legend = document.getElementById('body-legend'); legend.innerHTML = ''; 
-    if(bodyData.length === 0) { box.innerHTML = '<p style="padding:20px;text-align:center;color:#ccc">データがありません</p>'; return; }
-    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("viewBox", "0 0 300 150");
-    const datasets = [];
-    if (mode === 'A') { datasets.push({ key: 'w', color: '#3498db', label: '体重', unit:'kg' }); datasets.push({ key: 'f', color: '#e67e22', label: '体脂肪率', unit:'%' }); datasets.push({ key: 'waist', color: '#2ecc71', label: 'ウエスト', unit:'cm' }); } 
-    else { datasets.push({ key: 'lbm', color: '#e74c3c', label: '除脂肪', unit:'kg' }); datasets.push({ key: 'fm', color: '#f1c40f', label: '脂肪量', unit:'kg' }); }
-    const dataPoints = bodyData.slice(-14); const xStep = 260 / (dataPoints.length - 1 || 1); 
-    datasets.forEach((ds) => {
-        let pts = "";
-        const vals = dataPoints.map(d => {
-            if(ds.key === 'w') return d.w; if(ds.key === 'f') return d.f; if(ds.key === 'waist') return d.waist;
-            if(ds.key === 'fm') return (d.w && d.f) ? (d.w * d.f / 100) : 0;
-            if(ds.key === 'lbm') return (d.w && d.f) ? (d.w - (d.w * d.f / 100)) : 0;
-            return 0;
-        });
-        const max = Math.max(...vals) || 100; const min = Math.min(...vals.filter(v=>v>0)) || 0; const range = max - min || 1;
-        vals.forEach((v, i) => {
-            if(v > 0) {
-                const x = 20 + i * xStep; const y = 130 - ((v - min) / range * 110); pts += `${x},${y} `;
-                const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle"); dot.setAttribute("cx", x); dot.setAttribute("cy", y); dot.setAttribute("r", "4"); dot.setAttribute("fill", ds.color); dot.setAttribute("class", "g-dot");
-                svg.appendChild(dot);
-            }
-        });
-        const poly = document.createElementNS("http://www.w3.org/2000/svg", "polyline"); poly.setAttribute("points", pts); poly.setAttribute("stroke", ds.color); poly.setAttribute("class", "g-line"); svg.prepend(poly);
-    });
-    box.appendChild(svg);
-}
-
-function exportData() {
-    const data = { dat: localStorage.getItem('tf_dat'), tg: localStorage.getItem('tf_tg'), fav: localStorage.getItem('tf_fav'), my: localStorage.getItem('tf_my'), hist: localStorage.getItem('tf_hist'), body: localStorage.getItem('tf_body') };
-    const blob = new Blob([JSON.stringify(data)], {type: "text/json"}); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `pfc_backup_${new Date().toISOString().slice(0,10)}.json`; link.click();
-}
-function importData(input) {
-    const file = input.files[0]; if (!file) return; const reader = new FileReader();
-    reader.onload = function(e) { try { const data = JSON.parse(e.target.result); Object.keys(data).forEach(k => { if(data[k]) localStorage.setItem('tf_'+k, data[k]); }); alert("データを復元しました！"); location.reload(); } catch (err) { alert("ファイルが正しくありません"); } };
-    reader.readAsText(file);
-}
-
-// ▼▼▼ チャット機能JS (一瞬で切れない・粘り強い版) ▼▼▼
-
-const gasUrl = "https://script.google.com/macros/s/AKfycby6THg5PeEHYWWwxFV9VvY7kJ3MAMwoEuaJNs_EK_VZWv9alxqsi25RxDQ2wikkI1-H/exec";
-let speechRecognition;
-let isRecording = false;
-
-function toggleChat() {
-    const win = document.getElementById('tama-chat-window'); const btn = document.getElementById('tama-chat-btn');
-    if (win.style.display === 'flex') { win.style.display = 'none'; btn.style.display = 'flex'; } else { win.style.display = 'flex'; btn.style.display = 'none'; }
-}
-
-function setupChatEnterKey() {
-    const input = document.getElementById('chat-input'); if (!input) return;
-    input.addEventListener('keypress', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTamaChat(); } });
-}
-
-function toggleMic() {
-    const micBtn = document.getElementById('mic-btn');
-    const inputEl = document.getElementById('chat-input');
-
-    // すでに録音中なら停止（ユーザーによる明示的な終了）
-    if (isRecording) {
-        if (speechRecognition) speechRecognition.stop();
-        return;
-    }
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) { alert("音声入力に対応していないたま..."); return; }
-
-    speechRecognition = new SpeechRecognition();
-    speechRecognition.lang = 'ja-JP';
-    speechRecognition.continuous = true; // ★ ユーザーが止めるまで続ける
-    speechRecognition.interimResults = true; // ★ 途中経過をリアルタイム反映
-
-    let finalResult = ""; // 確定した文章の蓄積用
-
-    speechRecognition.onstart = () => {
-        isRecording = true;
-        micBtn.classList.add('recording');
-        inputEl.placeholder = "聞き取り中...（終わったらマイクをタップ）";
-    };
-
-    speechRecognition.onresult = (event) => {
-        let interimTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-            const transcript = event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-                finalResult += transcript; // 確定分を保存
-            } else {
-                interimTranscript += transcript; // 未確定分を一時保持
-            }
-        }
-        // 入力欄に「確定分 + 未確定分」を表示し続ける
-        inputEl.value = finalResult + interimTranscript;
-    };
-
-    speechRecognition.onerror = (event) => {
-        console.error("Speech recognition error:", event.error);
-        if(event.error === 'no-speech') inputEl.placeholder = "声が聞こえないたま...";
-    };
-
-    speechRecognition.onend = () => {
-        isRecording = false;
-        micBtn.classList.remove('recording');
-        inputEl.placeholder = "例: 夜ご飯なにがいい？";
-        // 文字が入っていれば送信処理へ
-        if (inputEl.value.trim().length > 0) {
-            sendTamaChat();
-        }
-    };
-
-    speechRecognition.start();
-}
-
-async function sendTamaChat() {
-    const inputEl = document.getElementById('chat-input');
-    const sendBtn = document.getElementById('chat-send');
-    const text = inputEl.value.trim();
-    if (!text) return;
-
-    inputEl.disabled = true; sendBtn.disabled = true;
-    addChatMsg('user', text);
-    inputEl.value = '';
-
-    chatHistory.push({ role: 'user', text: text });
-    if (chatHistory.length > 6) chatHistory.shift(); 
-
-    const loadingId = addChatMsg('bot', '筋トレ中...(思考中)');
-    const context = getAppContextStr();
-    let historyText = chatHistory.map(m => `${m.role === 'user' ? 'あなた' : 'たまちゃん'}: ${m.text}`).join('\n');
-    const basePrompt = (typeof SYSTEM_PROMPT !== 'undefined') ? SYSTEM_PROMPT : "フィットネスコーチ「たまちゃん」です。";
-    const fullPrompt = `${basePrompt}\n【ユーザーデータ】\n${context}\n【履歴】\n${historyText}\n【質問】\n${text}`;
-
-    try {
-        const response = await fetch(gasUrl, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ contents: [{ parts: [{ text: fullPrompt }] }] }) });
-        const data = await response.json();
-        removeMsg(loadingId);
-
-        let botReply = "ごめんたま、うまく答えられないたま...";
-        let autoFoodData = null;
-
-        if (data.candidates && data.candidates[0].content.parts[0].text) {
-            let rawText = data.candidates[0].content.parts[0].text;
-            if (rawText.includes("[DATA]")) {
-                const parts = rawText.split("[DATA]");
-                botReply = parts[0].replace(/たまちゃんの返答:/g, "").trim();
-                const dP = parts[1].trim().split(",");
-                if (dP.length >= 5) autoFoodData = { name: dP[0].trim(), P: parseFloat(dP[1])||0, F: parseFloat(dP[2])||0, C: parseFloat(dP[3])||0, Cal: parseInt(dP[4])||0 };
-            } else {
-                botReply = rawText.replace(/たまちゃんの返答:/g, "").trim();
-            }
-        }
-
-        botReply = botReply.replace(/\*\*/g, "").replace(/\*/g, "・");
-        addChatMsg('bot', botReply);
-
-        if (autoFoodData) {
-            lst.push({ N: "🤖 " + autoFoodData.name, P: autoFoodData.P, F: autoFoodData.F, C: autoFoodData.C, Cal: autoFoodData.Cal, U: "AI推測" });
-            sv(); ren(); upd(); window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-        chatHistory.push({ role: 'model', text: botReply });
-        if (chatHistory.length > 6) chatHistory.shift();
-    } catch (e) { removeMsg(loadingId); addChatMsg('bot', '通信エラーだたま...'); } 
-    finally { inputEl.disabled = false; sendBtn.disabled = false; inputEl.focus(); }
-}
-
-function addChatMsg(role, text) {
-    const box = document.getElementById('chat-messages'); const id = 'msg-' + Date.now();
-    const div = document.createElement('div'); div.className = `msg ${role}`; div.id = id;
-    const iconDiv = document.createElement('div'); iconDiv.className = 'icon'; iconDiv.innerHTML = '<img src="new_tama.png">';
-    const textDiv = document.createElement('div'); textDiv.className = 'text'; textDiv.innerText = text;
-    if(role === 'bot') { div.appendChild(iconDiv); div.appendChild(textDiv); } else { div.appendChild(textDiv); div.appendChild(iconDiv); }
-    box.appendChild(div); box.scrollTop = box.scrollHeight; return id;
-}
-
-function removeMsg(id) { const el = document.getElementById(id); if(el) el.remove(); }
-
-function getAppContextStr() {
-    let t = { Cal: 0, P: 0, F: 0, C: 0 }; lst.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; });
-    return `- 目標: ${TG.cal}kcal\n- 現在: ${t.Cal}kcal (残 ${TG.cal-t.Cal})\n- P:${t.P.toFixed(1)} F:${t.F.toFixed(1)} C:${t.C.toFixed(1)}\n- リスト: ${lst.map(x=>x.N).join(', ')}`;
-}
+</body>
+</html>
