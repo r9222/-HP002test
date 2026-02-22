@@ -18,7 +18,7 @@ body { font-family: 'M PLUS Rounded 1c', sans-serif; background: var(--bg); colo
 .header h1 { color: #fff; font-size: 20px; margin: 0; font-weight: 900; display: flex; align-items: center; justify-content: center; }
 .container { max-width: 600px; margin: 0 auto; padding: 15px; }
 
-/* メーター */
+/* ダッシュボード・メーター */
 .dash { background: #fff; padding: 15px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); margin-bottom: 20px; border: 2px solid var(--th); }
 .dash-t { text-align: center; font-weight: bold; margin-bottom: 10px; color: var(--th); }
 .mtr { margin-bottom: 10px; }
@@ -29,7 +29,7 @@ body { font-family: 'M PLUS Rounded 1c', sans-serif; background: var(--bg); colo
 .rem { color: var(--th); font-weight: 900; font-size: 14px; }
 .rem.ov { color: var(--del); }
 
-/* 入力エリア */
+/* 入力・検索エリア */
 .inp-sec { background: #fff; padding: 15px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
 .s-box { position: relative; margin-bottom: 15px; }
 .s-inp { width: 100%; padding: 12px 12px 12px 40px; border-radius: 25px; border: 2px solid #ddd; background: var(--sb); font-size: 16px; box-sizing: border-box; }
@@ -44,18 +44,18 @@ body { font-family: 'M PLUS Rounded 1c', sans-serif; background: var(--bg); colo
 #f-list { display: none; margin-top: 10px; max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; background: #fff; }
 .f-btn { padding: 12px; border-bottom: 1px solid #f0f0f0; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
 
-/* プレビュー・登録 */
+/* 登録・編集ボード */
 .pv-bar { background: linear-gradient(135deg, #fff0f6, #fff); border: 2px solid var(--th); border-radius: 8px; padding: 10px 15px; margin: 10px 0; cursor: pointer; }
 .reg-bd { display: none; background: #fdfdfd; border: 2px solid var(--th); border-radius: 8px; padding: 15px; margin-bottom: 20px; position: relative; }
-.m-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 5px; }
+.m-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 5px; }
 .m-grid input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
 .btn-add { display: block; width: 100%; padding: 15px; background: var(--th); color: #fff; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 15px; }
 
-/* 今日の記録 */
+/* 今日の記録リスト */
 .f-list-ul { list-style: none; padding: 0; margin-top: 10px; }
-.f-item { background: var(--ac); padding: 12px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+.f-item { background: var(--ac); padding: 12px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
 .act-btns { display: flex; gap: 5px; }
-.l-btn { border: none; padding: 6px 12px; border-radius: 4px; color: #fff; font-weight: bold; cursor: pointer; }
+.l-btn { border: none; padding: 6px 12px; border-radius: 4px; color: #fff; font-weight: bold; cursor: pointer; font-size: 12px; }
 
 /* チャット機能 */
 #tama-chat-btn { position: fixed; bottom: 20px; right: 20px; z-index: 999; background: var(--th); color: #fff; padding: 12px 24px; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); cursor: pointer; display: flex; align-items: center; font-weight: bold; }
@@ -84,31 +84,33 @@ body { font-family: 'M PLUS Rounded 1c', sans-serif; background: var(--bg); colo
 
 <div class="container">
     <div class="dash">
-        <div class="dash-t">今日の摂取目標</div>
+        <div class="dash-t">今日の目標摂取状況</div>
         <div class="mtr"><div class="mtr-l"><span>カロリー</span><span id="rem-cal" class="rem"></span></div><div class="bar-bg"><div id="bar-cal" class="bar"></div></div></div>
-        <div class="mtr"><div class="mtr-l"><span>P</span><span id="rem-p" class="rem"></span></div><div class="bar-bg"><div id="bar-p" class="bar"></div></div></div>
-        <div class="mtr"><div class="mtr-l"><span>F</span><span id="rem-f" class="rem"></span></div><div class="bar-bg"><div id="bar-f" class="bar"></div></div></div>
-        <div class="mtr"><div class="mtr-l"><span>C</span><span id="rem-c" class="rem"></span></div><div class="bar-bg"><div id="bar-c" class="bar"></div></div></div>
+        <div class="mtr"><div class="mtr-l"><span>P (プロテイン)</span><span id="rem-p" class="rem"></span></div><div class="bar-bg"><div id="bar-p" class="bar"></div></div></div>
+        <div class="mtr"><div class="mtr-l"><span>F (脂質)</span><span id="rem-f" class="rem"></span></div><div class="bar-bg"><div id="bar-f" class="bar"></div></div></div>
+        <div class="mtr"><div class="mtr-l"><span>C (炭水化物)</span><span id="rem-c" class="rem"></span></div><div class="bar-bg"><div id="bar-c" class="bar"></div></div></div>
     </div>
 
     <div class="inp-sec">
         <div class="s-box"><span class="s-icon">🔍</span><input type="text" class="s-inp" id="s-inp" placeholder="食品を検索..." oninput="filterF()"><div class="s-res" id="s-res"></div></div>
         <div class="cat-grp" id="cat-btns"></div>
         <div id="f-list"></div>
-        <div id="amt-area">
+        <div id="amt-area" style="display:none;">
             <div id="pv-bar" class="pv-bar" onclick="togBd()">
                 <div id="pv-name" style="font-weight:bold;color:var(--th)"></div>
                 <div id="pv-stat" style="font-size:13px;font-weight:bold;"></div>
             </div>
             <div id="reg-bd" class="reg-bd">
-                <div style="font-size:11px;color:#666">食品名</div><input type="text" id="m-name">
+                <div style="font-size:11px;color:#666">食品名</div><input type="text" id="m-name" style="width:100%; padding:8px; margin-bottom:10px; border:1px solid #ddd; border-radius:4px;">
                 <div class="m-grid">
                     <div>P<input type="text" id="m-p" oninput="calcM()"></div>
                     <div>F<input type="text" id="m-f" oninput="calcM()"></div>
                     <div>C<input type="text" id="m-c" oninput="calcM()"></div>
-                    <div>倍率<input type="text" id="m-mul" value="1" oninput="calcM()"></div>
                 </div>
-                <div style="margin-top:5px;">kcal<input type="text" id="m-cal" oninput="calcM()"></div>
+                <div class="m-grid" style="margin-top:10px;">
+                    <div>倍率<input type="text" id="m-mul" value="1" oninput="calcM()"></div>
+                    <div style="grid-column: span 2;">kcal<input type="text" id="m-cal" oninput="calcM()" style="background:#f9f9f9;"></div>
+                </div>
             </div>
             <button id="btn-reg" class="btn-add" onclick="addM()">リストに追加する</button>
         </div>
@@ -131,7 +133,7 @@ body { font-family: 'M PLUS Rounded 1c', sans-serif; background: var(--bg); colo
     <div class="chat-footer">
         <button id="mic-btn" onclick="toggleMic()">🎤</button>
         <input type="text" id="chat-input" placeholder="喋るか入力してたま..." onkeypress="if(event.key === 'Enter') sendTamaChat()">
-        <button id="chat-send" onclick="sendTamaChat()" style="background:var(--th);color:white;border:none;padding:8px 15px;border-radius:20px;font-weight:bold;">送信</button>
+        <button id="chat-send" onclick="sendTamaChat()" style="background:var(--th);color:white;border:none;padding:8px 15px;border-radius:20px;font-weight:bold;cursor:pointer;">送信</button>
     </div>
 </div>
 

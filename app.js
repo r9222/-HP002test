@@ -1,11 +1,7 @@
-// app.js : たまフィットPFCアプリ 統合メインロジック (Version 14)
+// app.js : たまフィットPFCアプリ 統合メインロジック (Version 15 - 完全復活版)
 
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std" }; 
 let lst = []; 
-let fav = []; 
-let myFoods = []; 
-let hist = []; 
-let bodyData = []; 
 let chatHistory = []; 
 let selIdx = -1; 
 let editIdx = -1; 
@@ -20,7 +16,7 @@ window.onload = () => {
     if (localStorage.getItem('tf_tg')) TG = JSON.parse(localStorage.getItem('tf_tg'));
     const savedData = localStorage.getItem('tf_dat');
     if (savedData) lst = JSON.parse(savedData);
-    setupChatEnterKey(); mkCat(); mkTgt(); upd(); ren();
+    mkCat(); upd(); ren();
 };
 
 // --- 食品リスト関連 ---
@@ -28,7 +24,6 @@ function mkCat() {
     const d = document.getElementById('cat-btns');
     if(typeof DB === 'undefined') return;
     const cats = [...new Set(DB.map(i => i[0]))];
-    d.innerHTML = `<div class="c-btn" onclick="shwList('📂',this)">My食品</div>`;
     cats.forEach(c => {
         const b = document.createElement('div'); b.className = 'c-btn'; b.textContent = c;
         b.onclick = () => shwList(c, b); d.appendChild(b);
@@ -41,10 +36,11 @@ function shwList(c, btn) {
     if (l.style.display === 'block' && l.dataset.cat === c) { l.style.display = 'none'; return; }
     btn.classList.add('act'); l.dataset.cat = c;
     l.innerHTML = `<div style="background:#eee;padding:5px;font-size:12px;font-weight:bold;display:flex;justify-content:space-between;"><span>${c}</span><span onclick="this.parentElement.parentElement.style.display='none'" style="cursor:pointer">×</span></div>`;
-    const itms = DB.map((x, i) => ({ ...x, name:x[1], i:i })).filter(x => x[0] === c);
-    itms.forEach(x => {
-        const d = document.createElement('div'); d.className = 'f-btn'; d.innerHTML = `<span>${x.name}</span>`;
-        d.onclick = () => selFd(x.i); l.appendChild(d);
+    DB.forEach((x, i) => {
+        if (x[0] === c) {
+            const d = document.createElement('div'); d.className = 'f-btn'; d.innerHTML = `<span>${x[1]}</span>`;
+            d.onclick = () => selFd(i); l.appendChild(d);
+        }
     });
     l.style.display = 'block';
 }
@@ -70,14 +66,24 @@ function updBd(v) {
     document.getElementById('m-cal').value = Cal;
 }
 
-function addM() {
-    const n = document.getElementById('m-name').value || "未入力";
+function calcM() {
     const p = parseNum(document.getElementById('m-p').value);
     const f = parseNum(document.getElementById('m-f').value);
     const c = parseNum(document.getElementById('m-c').value);
     const mul = parseNum(document.getElementById('m-mul').value) || 1;
-    const cal = parseNum(document.getElementById('m-cal').value) || ((p * 4 + f * 9 + c * 4) * mul);
-    const newData = { N: n, P: p * mul, F: f * mul, C: c * mul, Cal: Math.round(cal) };
+    document.getElementById('m-cal').value = Math.round((p * 4 + f * 9 + c * 4) * mul);
+}
+
+function addM() {
+    const n = document.getElementById('m-name').value || "未入力";
+    const mul = parseNum(document.getElementById('m-mul').value) || 1;
+    const newData = {
+        N: n,
+        P: parseNum(document.getElementById('m-p').value) * mul,
+        F: parseNum(document.getElementById('m-f').value) * mul,
+        C: parseNum(document.getElementById('m-c').value) * mul,
+        Cal: parseNum(document.getElementById('m-cal').value)
+    };
     if (editIdx >= 0) { lst[editIdx] = newData; editIdx = -1; } else { lst.push(newData); }
     localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd();
     document.getElementById('amt-area').style.display = 'none';
@@ -88,14 +94,25 @@ function ren() {
     lst.forEach((x, i) => {
         const li = document.createElement('li'); li.className = 'f-item';
         li.innerHTML = `<div><strong>${x.N}</strong><br>${x.Cal}kcal (P${x.P.toFixed(1)} F${x.F.toFixed(1)} C${x.C.toFixed(1)})</div>
-            <div class="act-btns"><button class="l-btn" style="background:#3498db" onclick="ed(${i})">編集</button><button class="l-btn" style="background:#e74c3c" onclick="del(${i})">消去</button></div>`;
+            <div class="act-btns">
+                <button class="l-btn" style="background:#3498db" onclick="ed(${i})">編集</button>
+                <button class="l-btn" style="background:#e74c3c" onclick="del(${i})">消去</button>
+            </div>`;
         ul.appendChild(li);
     });
     document.getElementById('tot-cal').textContent = lst.reduce((a, b) => a + b.Cal, 0);
 }
 
 function del(i) { lst.splice(i, 1); localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd(); }
-function ed(i) { const x = lst[i]; editIdx = i; document.getElementById('amt-area').style.display = 'block'; document.getElementById('m-name').value = x.N; document.getElementById('m-p').value = x.P; document.getElementById('m-f').value = x.F; document.getElementById('m-c').value = x.C; document.getElementById('m-mul').value = 1; document.getElementById('m-cal').value = x.Cal; }
+
+function ed(i) {
+    const x = lst[i]; editIdx = i; selIdx = -1;
+    document.getElementById('amt-area').style.display = 'block';
+    document.getElementById('m-name').value = x.N;
+    document.getElementById('m-p').value = x.P; document.getElementById('m-f').value = x.F; document.getElementById('m-c').value = x.C;
+    document.getElementById('m-mul').value = 1; document.getElementById('m-cal').value = x.Cal;
+    document.getElementById('pv-bar').style.display = 'none';
+}
 
 function upd() {
     const t = { Cal: 0, P: 0, F: 0, C: 0 }; lst.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; });
@@ -107,9 +124,7 @@ function upd() {
     setBar('Cal', t.Cal, TG.cal, 'kcal'); setBar('P', t.P, TG.p, 'g'); setBar('F', t.F, TG.f, 'g'); setBar('C', t.C, TG.c, 'g');
 }
 
-function mkTgt() { /* 目標設定UI省略 */ }
-
-// --- チャット・音声機能 (ネットワークエラー超強化版) ---
+// --- チャット・音声機能 (networkエラー自動リトライ対応版) ---
 
 const gasUrl = "https://script.google.com/macros/s/AKfycby6THg5PeEHYWWwxFV9VvY7kJ3MAMwoEuaJNs_EK_VZWv9alxqsi25RxDQ2wikkI1-H/exec";
 let recognition;
@@ -119,12 +134,6 @@ let finalTranscript = '';
 function toggleChat() {
     const win = document.getElementById('tama-chat-window');
     win.style.display = (win.style.display === 'flex') ? 'none' : 'flex';
-}
-
-function setupChatEnterKey() {
-    const input = document.getElementById('chat-input');
-    if (!input) return;
-    input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendTamaChat(); });
 }
 
 function toggleMic() {
@@ -165,30 +174,23 @@ function toggleMic() {
         inputEl.value = finalTranscript + interimTranscript;
     };
 
-    // ★ エラー診断・自動リトライ機能
     recognition.onerror = (event) => {
         console.error("Speech Error:", event.error);
-        
         if (event.error === 'network') {
-            // ネットワークエラーの場合、数秒待って自動で再起動を試みる
-            console.log("Network error. Retrying in 1s...");
+            console.log("Network error. Retrying...");
             setTimeout(() => { if(isRecording) recognition.start(); }, 1000);
             return; 
         }
-
-        if (event.error === 'no-speech') return; // 無音は無視
-
-        // 重大なエラーの場合
+        if (event.error === 'no-speech') return; 
         isRecording = false;
         micBtn.classList.remove('recording');
-        let errorMsg = "エラー（" + event.error + "）だたま。";
-        if(event.error === 'not-allowed') errorMsg = "マイクが許可されてないたま！";
-        addChatMsg('bot', errorMsg + " もう一度マイクを押してたま！");
+        let errorMsg = `エラー(${event.error})で止まっちゃったたま。もう一度マイクを押してたま！`;
+        if(event.error === 'not-allowed') errorMsg = "マイクの許可がされてないたま！URL横の鍵マークから許可してたま！";
+        addChatMsg('bot', errorMsg);
     };
 
     recognition.onend = () => {
         if (isRecording) {
-            // 勝手に止まったら即座に再開
             try { recognition.start(); } catch(e) {}
         } else {
             micBtn.classList.remove('recording');
@@ -196,7 +198,6 @@ function toggleMic() {
             if (inputEl.value.trim() !== "") sendTamaChat();
         }
     };
-
     recognition.start();
 }
 
@@ -210,8 +211,8 @@ async function sendTamaChat() {
     inputEl.disabled = true;
 
     const loadingId = addChatMsg('bot', 'たまちゃん考え中...');
-    const context = `摂取:${lst.reduce((a,b)=>a+b.Cal,0)}kcal,目標:${TG.cal}kcal`;
-    const prompt = `${SYSTEM_PROMPT}\n\n【状況】${context}\n【質問】${text}`;
+    const context = `現在の摂取状況: カロリー合計 ${lst.reduce((a,b)=>a+b.Cal,0)}kcal, 目標 ${TG.cal}kcal`;
+    const prompt = `${SYSTEM_PROMPT}\n\n【ユーザー状況】${context}\n【質問/報告】${text}`;
 
     try {
         const response = await fetch(gasUrl, {
