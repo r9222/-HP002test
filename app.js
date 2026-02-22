@@ -607,11 +607,12 @@ function setupChatEnterKey() {
     });
 }
 
-// ★マイク機能（粘り強いリスニング＆エラー自動復旧付き）
+// ★マイク機能（安定重視・手動送信・全デバイス対応版）
 function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
     const inputEl = document.getElementById('chat-input');
 
+    // すでに録音中なら停止する
     if (isRecording) {
         isRecording = false;
         if (recognition) recognition.stop();
@@ -626,8 +627,10 @@ function toggleMic() {
 
     recognition = new SpeechRecognition();
     recognition.lang = 'ja-JP';
-    recognition.continuous = true;  // 途中で勝手に切れないようにする
-    recognition.interimResults = true; // 喋っている途中の文字も出す
+    
+    // ★Safari対策: 連続認識をオフにし、1回の発話で素直に終わらせる
+    recognition.continuous = false;  
+    recognition.interimResults = true; 
 
     recognition.onstart = () => {
         isRecording = true;
@@ -646,48 +649,41 @@ function toggleMic() {
                 interimTranscript += transcript;
             }
         }
+        // 喋った文字を入力欄に表示
         inputEl.value = finalTranscript + interimTranscript;
     };
 
     recognition.onerror = (event) => {
         console.warn("Speech recognition error:", event.error);
-        
-        // ネットワークエラーなら、少し待って自動で再起動
-        if (event.error === 'network') {
-            console.log("Network error. Retrying in 1s...");
-            setTimeout(() => { if (isRecording) recognition.start(); }, 1000);
-            return; 
-        }
-
-        // 無音エラーは無視して聞き続ける
-        if (event.error === 'no-speech') return; 
-
-        // その他のエラー（マイク未許可など）
         isRecording = false;
         micBtn.classList.remove('recording');
         
+        // ★Safari特有のエラー(aborted)や無音(no-speech)への対応
+        if (event.error === 'aborted') {
+            inputEl.placeholder = "音声入力が中断されたたま。もう一度マイクを押してね！";
+            return;
+        }
+        if (event.error === 'no-speech') {
+            inputEl.placeholder = "声が聞こえなかったたま。もう一度マイクを押してね！";
+            return; 
+        }
+
+        // その他のエラー
         let errorMsg = "";
         switch (event.error) {
             case 'not-allowed': errorMsg = "マイクの使用が許可されてないたま！ブラウザの設定を確認してたま！"; break;
-            case 'audio-capture': errorMsg = "マイクが見つからないたま...。接続を確認してたま。"; break;
+            case 'network': errorMsg = "通信エラーで聞き取れなかったたま。"; break;
             default: errorMsg = `エラー（${event.error}）で録音が止まっちゃったたま...`;
         }
-        addChatMsg('bot', errorMsg);
+        if(errorMsg) addChatMsg('bot', errorMsg);
     };
 
     recognition.onend = () => {
-        if (isRecording) {
-            // isRecording が true のまま onend が呼ばれた＝勝手に止まったので再起動
-            console.log("Recognition ended unexpectedly. Restarting...");
-            try { recognition.start(); } catch(e) {}
-        } else {
-            // ユーザーが手動で止めた場合
-            micBtn.classList.remove('recording');
-            inputEl.placeholder = "例: 夜ご飯なにがいい？";
-            if (inputEl.value.trim() !== "") {
-                sendTamaChat(); // そのまま送信
-            }
-        }
+        // ★自動再起動や自動送信はしない（Safariで安定させるため）
+        isRecording = false;
+        micBtn.classList.remove('recording');
+        inputEl.placeholder = "例: 夜ご飯なにがいい？";
+        // 文字が入力欄に入った状態で待機するので、ユーザーが「送信」ボタンを押す
     };
 
     recognition.start();
@@ -863,4 +859,5 @@ function getAppContextStr() {
     - 今日食べたものリスト: ${lst.map(x => x.N).join(', ') || 'まだ何も食べてない'}
     `;
 }
+
 // ▲▲▲ チャット機能JS ここまで ▲▲▲
