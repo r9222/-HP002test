@@ -312,16 +312,68 @@ function delHist(i) { if (!confirm("削除しますか？")) return; hist.splice
 
 function togFav(i, el) { const x = fav.indexOf(i); if (x >= 0) fav.splice(x, 1); else fav.push(i); localStorage.setItem('tf_fav', JSON.stringify(fav)); el.classList.toggle('act'); }
 
+// ▼▼ app.js の filterF() 関数をこれで上書きしてください ▼▼
+
 function filterF() {
-    const v = document.getElementById('s-inp').value; const r = document.getElementById('s-res'); r.innerHTML = ""; if (!v) { r.style.display = 'none'; return; }
-    r.style.display = 'block';
+    const rawV = document.getElementById('s-inp').value.trim();
+    const r = document.getElementById('s-res');
+    r.innerHTML = "";
+    if (!rawV) { r.style.display = 'none'; return; }
+
+    // 魔法1：入力されたカタカナを自動的に「ひらがな」に変換
+    const query = toHira(rawV).toLowerCase();
+    
+    // 魔法2：2文字以上入力されたら「部分一致（途中から一致）」を解禁する
+    const isPartialAllowed = query.length >= 2;
+
+    let results = [];
+
     DB.forEach((x, i) => {
-        if (x[1].startsWith(v) || x[2].split(' ').some(k => k.startsWith(v))) {
-            const d = document.createElement('div'); d.className = 's-item'; d.innerHTML = `<strong>${x[1]}</strong>`;
-            d.onclick = () => { selFd(i); r.style.display = 'none'; }; r.appendChild(d);
+        // 検索対象の「名前」と「キーワード（ひらがな変換済）」
+        const name = toHira(x[1]).toLowerCase();
+        const keys = x[2] ? toHira(x[2]).toLowerCase() : "";
+
+        let score = 0;
+
+        // 【1000点】完全一致（例：「白米」と打って「白米」が出た）
+        if (name === query || keys.split(' ').includes(query)) {
+            score = 1000;
+        }
+        // 【500点】前方一致（例：「とり」と打って「とりむね」が出た）
+        else if (name.startsWith(query) || keys.split(' ').some(k => k.startsWith(query))) {
+            score = 500;
+        }
+        // 【100点】部分一致（例：「むね」と打って「とりむね」が出た）※2文字以上の時だけ発動
+        else if (isPartialAllowed && (name.includes(query) || keys.includes(query))) {
+            score = 100;
+        }
+
+        // 点数が1点以上ならリストの候補に入れる
+        if (score > 0) {
+            results.push({ item: x, index: i, score: score });
         }
     });
+
+    if (results.length === 0) {
+        r.style.display = 'none';
+        return;
+    }
+
+    // 魔法3：点数が高い順（1000点→500点→100点）に並び替える
+    results.sort((a, b) => b.score - a.score);
+
+    // 並び替えた結果を画面に表示する
+    r.style.display = 'block';
+    results.forEach(res => {
+        const d = document.createElement('div');
+        d.className = 's-item';
+        d.innerHTML = `<strong>${res.item[1]}</strong>`;
+        d.onclick = () => { selFd(res.index); r.style.display = 'none'; };
+        r.appendChild(d);
+    });
 }
+
+// ▲▲ ここまで ▲▲
 
 function mkTgt() {
     const b = document.getElementById('tgt-btns'); b.innerHTML = "";
@@ -816,5 +868,6 @@ function getAppContextStr() {
 }
 
 // ▲▲▲ チャット機能JS ここまで ▲▲▲
+
 
 
