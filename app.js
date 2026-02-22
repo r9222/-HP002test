@@ -39,7 +39,7 @@ window.onload = () => {
     mkCat(); mkTgt(); upd(); ren();
 };
 
-// --- 食品選択・表示系 (既存ロジック維持) ---
+// --- 食品選択・表示系関数 (既存ロジック維持) ---
 function mkCat() {
     const d = document.getElementById('cat-btns');
     if(typeof DB === 'undefined') return;
@@ -134,7 +134,11 @@ function regMyFood() {
     if (!n) return alert("食品名を入力してください");
     const m = parseNum(document.getElementById('m-mul').value) || 1;
     myFoods.push({
-        N: n, P: parseFloat(((parseNum(document.getElementById('m-p').value)||0)/m).toFixed(1)), F: parseFloat(((parseNum(document.getElementById('m-f').value)||0)/m).toFixed(1)), C: parseFloat(((parseNum(document.getElementById('m-c').value)||0)/m).toFixed(1)), Cal: Math.round((parseNum(document.getElementById('m-cal').value)||0)/m)
+        N: n,
+        P: parseFloat(((parseNum(document.getElementById('m-p').value)||0)/m).toFixed(1)),
+        F: parseFloat(((parseNum(document.getElementById('m-f').value)||0)/m).toFixed(1)),
+        C: parseFloat(((parseNum(document.getElementById('m-c').value)||0)/m).toFixed(1)),
+        Cal: Math.round((parseNum(document.getElementById('m-cal').value)||0)/m)
     });
     localStorage.setItem('tf_my', JSON.stringify(myFoods));
     alert(`「${n}」をMy食品に登録しました！`);
@@ -207,7 +211,14 @@ function ren() {
     const ul = document.getElementById('f-list-ul'); ul.innerHTML = "";
     lst.forEach((x, i) => {
         const li = document.createElement('li'); li.className = 'f-item';
-        li.innerHTML = `<div><strong>${x.N}</strong> <small>${x.U}</small><br><span style="font-size:12px;color:#666">${x.Cal}kcal (P${x.P.toFixed(1)} F${x.F.toFixed(1)} C${x.C.toFixed(1)})</span></div><div class="act-btns"><button class="l-btn b-re" onclick="reAdd(${i})">複製</button><button class="l-btn b-ed" onclick="ed(${i})">編集</button><button class="l-btn b-del" onclick="del(${i})">消去</button></div>`;
+        li.innerHTML = `
+            <div><strong>${x.N}</strong> <small>${x.U}</small><br>
+            <span style="font-size:12px;color:#666">${x.Cal}kcal (P${x.P.toFixed(1)} F${x.F.toFixed(1)} C${x.C.toFixed(1)})</span></div>
+            <div class="act-btns">
+                <button class="l-btn b-re" onclick="reAdd(${i})">複製</button>
+                <button class="l-btn b-ed" onclick="ed(${i})">編集</button>
+                <button class="l-btn b-del" onclick="del(${i})">消去</button>
+            </div>`;
         ul.appendChild(li);
     });
     document.getElementById('tot-cal').textContent = lst.reduce((a, b) => a + b.Cal, 0);
@@ -231,17 +242,20 @@ function sv() { localStorage.setItem('tf_dat', JSON.stringify(lst)); }
 function rst() { document.getElementById('reset-modal').style.display = 'flex'; }
 function closeResetModal() { document.getElementById('reset-modal').style.display = 'none'; }
 function confirmReset() {
-    const d = document.getElementById('reset-date').value; if (!d) return alert("日付を選択してください");
+    const d = document.getElementById('reset-date').value;
+    if (!d) return alert("日付を選択してください");
     const dateObj = new Date(d); const dateStr = dateObj.toLocaleDateString();
     const currentList = JSON.parse(JSON.stringify(lst));
     svHist(dateStr, currentList);
-    lst = []; sv(); ren(); upd(); closeResetModal();
+    lst = []; sv(); ren(); upd();
+    closeResetModal();
     alert(`${dateStr} の記録として保存し、リセットしました。`);
 }
 
 function svHist(d, l) {
     const i = hist.findIndex(h => h.d === d); if (i >= 0) hist.splice(i, 1); 
-    const t = { Cal: 0, P: 0, F: 0, C: 0 }; l.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; });
+    const t = { Cal: 0, P: 0, F: 0, C: 0 }; 
+    l.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; });
     hist.unshift({ d: d, s: t, l: l }); if (hist.length > 30) hist.pop(); 
     localStorage.setItem('tf_hist', JSON.stringify(hist));
 }
@@ -252,7 +266,22 @@ function rHist() {
     hist.forEach((h, i) => {
         const foodsHtml = h.l.map(f => `<div class="hf-row"><span class="hf-name">${f.N}</span><span class="hf-vals">${f.Cal}kcal (P${f.P} F${f.F} C${f.C})</span></div>`).join('');
         const c = document.createElement('div'); c.className = 'h-card-wrap';
-        c.innerHTML = `<div class="h-card"><div class="h-summary" onclick="document.getElementById('h-det-${i}').style.display = document.getElementById('h-det-${i}').style.display === 'block' ? 'none' : 'block'"><div class="h-info"><div><span class="h-date">${h.d}</span> <span class="h-meta">${h.s.Cal}kcal</span></div><div class="h-meta" style="font-size:10px;">(P${h.s.P.toFixed(0)} F${h.s.F.toFixed(0)} C${h.s.C.toFixed(0)})</div><div class="h-toggle-hint">▼ 詳細</div></div><div class="h-btns"><button class="h-btn h-b-res" onclick="event.stopPropagation(); resHist(${i})">復元</button><button class="h-btn h-b-cp" onclick="event.stopPropagation(); cpHist(${i})">テキストへコピー</button><button class="h-btn h-b-del" onclick="event.stopPropagation(); delHist(${i})">削除</button></div></div><div id="h-det-${i}" class="h-detail">${foodsHtml}</div></div>`;
+        c.innerHTML = `
+            <div class="h-card">
+                <div class="h-summary" onclick="document.getElementById('h-det-${i}').style.display = document.getElementById('h-det-${i}').style.display === 'block' ? 'none' : 'block'">
+                    <div class="h-info">
+                        <div><span class="h-date">${h.d}</span> <span class="h-meta">${h.s.Cal}kcal</span></div>
+                        <div class="h-meta" style="font-size:10px;">(P${h.s.P.toFixed(0)} F${h.s.F.toFixed(0)} C${h.s.C.toFixed(0)})</div>
+                        <div class="h-toggle-hint">▼ 詳細</div>
+                    </div>
+                    <div class="h-btns">
+                        <button class="h-btn h-b-res" onclick="event.stopPropagation(); resHist(${i})">復元</button>
+                        <button class="h-btn h-b-cp" onclick="event.stopPropagation(); cpHist(${i})">テキストへコピー</button>
+                        <button class="h-btn h-b-del" onclick="event.stopPropagation(); delHist(${i})">削除</button>
+                    </div>
+                </div>
+                <div id="h-det-${i}" class="h-detail">${foodsHtml}</div>
+            </div>`;
         d.appendChild(c);
     });
 }
@@ -282,7 +311,10 @@ function toggleTgt() { const b = document.getElementById('tgt-btns'); const c = 
 
 function calcPFC(c) {
     let p=0, f=0;
-    if (TG.mode === "lowfat") { p = c * 0.3 / 4; f = c * 0.1 / 9; } else if (TG.mode === "muscle") { p = c * 0.4 / 4; f = c * 0.2 / 9; } else if (TG.mode === "keto") { p = c * 0.3 / 4; f = c * 0.6 / 9; } else { p = c * 0.3 / 4; f = c * 0.2 / 9; }
+    if (TG.mode === "lowfat") { p = c * 0.3 / 4; f = c * 0.1 / 9; }
+    else if (TG.mode === "muscle") { p = c * 0.4 / 4; f = c * 0.2 / 9; }
+    else if (TG.mode === "keto") { p = c * 0.3 / 4; f = c * 0.6 / 9; }
+    else { p = c * 0.3 / 4; f = c * 0.2 / 9; }
     return { p: p, f: f, c: (c - (p * 4 + f * 9)) / 4 };
 }
 
@@ -309,7 +341,8 @@ function togGraph() { const a = document.getElementById('graph-area'); if (a.sty
 
 function drawGraph(type, btn) {
     document.querySelectorAll('.g-btn').forEach(b => b.classList.remove('act')); if(btn) btn.classList.add('act');
-    const box = document.getElementById('chart-box'); box.innerHTML = ''; let data = []; const today = new Date();
+    const box = document.getElementById('chart-box'); box.innerHTML = '';
+    let data = []; const today = new Date();
     if (type === 'week') {
         for (let i = 6; i >= 0; i--) {
             const d = new Date(today); d.setDate(today.getDate() - i); const ds = d.toLocaleDateString();
@@ -319,12 +352,15 @@ function drawGraph(type, btn) {
         }
     } else { data = hist.slice(0, 30).reverse().map(h => ({ label: h.d.split('/')[2], s: h.s, d: h.d })); }
     if (data.length === 0) { box.innerHTML = '<p style="margin:auto;color:#ccc">データなし</p>'; return; }
-    const total = data.reduce((acc, cur) => acc + cur.s.Cal, 0); const avg = data.length > 0 ? Math.round(total / data.length) : 0;
+    const total = data.reduce((acc, cur) => acc + cur.s.Cal, 0);
+    const avg = data.length > 0 ? Math.round(total / data.length) : 0;
     document.getElementById('stat-txt').innerHTML = `期間平均: ${avg}kcal <span style="font-size:10px;color:#999">(合計: ${total}kcal)</span>`;
     const maxVal = Math.max(...data.map(d => d.s.Cal), TG.cal) || 2000;
     const line = document.createElement('div'); line.className = 'target-line'; line.style.bottom = (TG.cal/maxVal)*100 + '%'; line.innerHTML = `<span class="target-val">${TG.cal}</span>`; box.appendChild(line);
     data.forEach(d => {
-        const h = Math.min((d.s.Cal / maxVal) * 100, 100); const grp = document.createElement('div'); grp.className = 'bar-grp'; const col = document.createElement('div'); col.className = 'bar-col'; col.style.height = h + '%';
+        const h = Math.min((d.s.Cal / maxVal) * 100, 100);
+        const grp = document.createElement('div'); grp.className = 'bar-grp';
+        const col = document.createElement('div'); col.className = 'bar-col'; col.style.height = h + '%';
         const totalCal = (d.s.P*4 + d.s.F*9 + d.s.C*4) || 1;
         col.innerHTML = `<div class="seg-p" style="height:${(d.s.P*4/totalCal)*100}%;"></div><div class="seg-f" style="height:${(d.s.F*9/totalCal)*100}%;"></div><div class="seg-c" style="height:${(d.s.C*4/totalCal)*100}%;"></div>`;
         grp.innerHTML = `<span class="bar-lbl">${d.label}</span>`; grp.appendChild(col);
@@ -368,75 +404,81 @@ function drawBodyGraph(mode, btn) {
             return 0;
         });
         const max = Math.max(...vals) || 100; const min = Math.min(...vals.filter(v=>v>0)) || 0; const range = max - min || 1;
-        vals.forEach((v, i) => { if(v > 0) { const x = 20 + i * xStep; const y = 130 - ((v - min) / range * 110); pts += `${x},${y} `; const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle"); dot.setAttribute("cx", x); dot.setAttribute("cy", y); dot.setAttribute("r", "4"); dot.setAttribute("fill", ds.color); dot.setAttribute("class", "g-dot"); svg.appendChild(dot); } });
+        vals.forEach((v, i) => {
+            if(v > 0) {
+                const x = 20 + i * xStep; const y = 130 - ((v - min) / range * 110); pts += `${x},${y} `;
+                const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle"); dot.setAttribute("cx", x); dot.setAttribute("cy", y); dot.setAttribute("r", "4"); dot.setAttribute("fill", ds.color); dot.setAttribute("class", "g-dot");
+                svg.appendChild(dot);
+            }
+        });
         const poly = document.createElementNS("http://www.w3.org/2000/svg", "polyline"); poly.setAttribute("points", pts); poly.setAttribute("stroke", ds.color); poly.setAttribute("class", "g-line"); svg.prepend(poly);
     });
     box.appendChild(svg);
 }
 
-function exportData() { const data = { dat: localStorage.getItem('tf_dat'), tg: localStorage.getItem('tf_tg'), fav: localStorage.getItem('tf_fav'), my: localStorage.getItem('tf_my'), hist: localStorage.getItem('tf_hist'), body: localStorage.getItem('tf_body') }; const blob = new Blob([JSON.stringify(data)], {type: "text/json"}); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `pfc_backup_${new Date().toISOString().slice(0,10)}.json`; link.click(); }
-function importData(input) { const file = input.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = function(e) { try { const data = JSON.parse(e.target.result); Object.keys(data).forEach(k => { if(data[k]) localStorage.setItem('tf_'+k, data[k]); }); alert("データを復元しました！"); location.reload(); } catch (err) { alert("ファイルが正しくありません"); } }; reader.readAsText(file); }
+function exportData() {
+    const data = { dat: localStorage.getItem('tf_dat'), tg: localStorage.getItem('tf_tg'), fav: localStorage.getItem('tf_fav'), my: localStorage.getItem('tf_my'), hist: localStorage.getItem('tf_hist'), body: localStorage.getItem('tf_body') };
+    const blob = new Blob([JSON.stringify(data)], {type: "text/json"}); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `pfc_backup_${new Date().toISOString().slice(0,10)}.json`; link.click();
+}
+function importData(input) {
+    const file = input.files[0]; if (!file) return; const reader = new FileReader();
+    reader.onload = function(e) { try { const data = JSON.parse(e.target.result); Object.keys(data).forEach(k => { if(data[k]) localStorage.setItem('tf_'+k, data[k]); }); alert("データを復元しました！"); location.reload(); } catch (err) { alert("ファイルが正しくありません"); } };
+    reader.readAsText(file);
+}
 
-// ▼▼▼ チャット機能JS (iOS安定化・ハイブリッド版) ▼▼▼
+// ▼▼▼ チャット機能JS (一瞬で切れない・粘り強い版) ▼▼▼
 
 const gasUrl = "https://script.google.com/macros/s/AKfycby6THg5PeEHYWWwxFV9VvY7kJ3MAMwoEuaJNs_EK_VZWv9alxqsi25RxDQ2wikkI1-H/exec";
 let speechRecognition;
 let isRecording = false;
-let recognitionTimer; 
 
 function toggleChat() {
     const win = document.getElementById('tama-chat-window'); const btn = document.getElementById('tama-chat-btn');
     if (win.style.display === 'flex') { win.style.display = 'none'; btn.style.display = 'flex'; } else { win.style.display = 'flex'; btn.style.display = 'none'; }
 }
 
-function setupChatEnterKey() { const input = document.getElementById('chat-input'); if (!input) return; input.addEventListener('keypress', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTamaChat(); } }); }
+function setupChatEnterKey() {
+    const input = document.getElementById('chat-input'); if (!input) return;
+    input.addEventListener('keypress', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTamaChat(); } });
+}
 
 function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
     const inputEl = document.getElementById('chat-input');
 
-    if (isRecording) { if (speechRecognition) speechRecognition.stop(); return; }
+    // すでに録音中なら停止（ユーザーによる明示的な終了）
+    if (isRecording) {
+        if (speechRecognition) speechRecognition.stop();
+        return;
+    }
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) { alert("音声入力に対応していないたま..."); return; }
 
-    // 前回のタイマーを確実に消去
-    clearTimeout(recognitionTimer);
-
     speechRecognition = new SpeechRecognition();
     speechRecognition.lang = 'ja-JP';
-    speechRecognition.interimResults = true; 
+    speechRecognition.continuous = true; // ★ ユーザーが止めるまで続ける
+    speechRecognition.interimResults = true; // ★ 途中経過をリアルタイム反映
 
-    // iOSかどうかを判定
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    
-    // ★ iOSでは continuous を false にすることで「即終了」を回避し、
-    // Android では true にして快適さを維持する
-    speechRecognition.continuous = !isIOS; 
-
-    let finalResult = "";
+    let finalResult = ""; // 確定した文章の蓄積用
 
     speechRecognition.onstart = () => {
-        isRecording = true; micBtn.classList.add('recording');
-        inputEl.placeholder = isIOS ? "聞き取り中...（話し終えると送信）" : "聞き取り中...（自動送信）";
+        isRecording = true;
+        micBtn.classList.add('recording');
+        inputEl.placeholder = "聞き取り中...（終わったらマイクをタップ）";
     };
 
     speechRecognition.onresult = (event) => {
-        clearTimeout(recognitionTimer);
-
         let interimTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
             const transcript = event.results[i][0].transcript;
             if (event.results[i].isFinal) {
-                finalResult += transcript;
-                // iOSでもAndroidでも、声が途切れて1.5秒で自動停止させる
-                recognitionTimer = setTimeout(() => {
-                    if(isRecording) speechRecognition.stop();
-                }, 1500);
+                finalResult += transcript; // 確定分を保存
             } else {
-                interimTranscript += transcript;
+                interimTranscript += transcript; // 未確定分を一時保持
             }
         }
+        // 入力欄に「確定分 + 未確定分」を表示し続ける
         inputEl.value = finalResult + interimTranscript;
     };
 
@@ -446,9 +488,13 @@ function toggleMic() {
     };
 
     speechRecognition.onend = () => {
-        isRecording = false; micBtn.classList.remove('recording');
+        isRecording = false;
+        micBtn.classList.remove('recording');
         inputEl.placeholder = "例: 夜ご飯なにがいい？";
-        if (inputEl.value.trim().length > 0) { sendTamaChat(); }
+        // 文字が入っていれば送信処理へ
+        if (inputEl.value.trim().length > 0) {
+            sendTamaChat();
+        }
     };
 
     speechRecognition.start();
@@ -461,7 +507,8 @@ async function sendTamaChat() {
     if (!text) return;
 
     inputEl.disabled = true; sendBtn.disabled = true;
-    addChatMsg('user', text); inputEl.value = '';
+    addChatMsg('user', text);
+    inputEl.value = '';
 
     chatHistory.push({ role: 'user', text: text });
     if (chatHistory.length > 6) chatHistory.shift(); 
@@ -487,7 +534,9 @@ async function sendTamaChat() {
                 botReply = parts[0].replace(/たまちゃんの返答:/g, "").trim();
                 const dP = parts[1].trim().split(",");
                 if (dP.length >= 5) autoFoodData = { name: dP[0].trim(), P: parseFloat(dP[1])||0, F: parseFloat(dP[2])||0, C: parseFloat(dP[3])||0, Cal: parseInt(dP[4])||0 };
-            } else { botReply = rawText.replace(/たまちゃんの返答:/g, "").trim(); }
+            } else {
+                botReply = rawText.replace(/たまちゃんの返答:/g, "").trim();
+            }
         }
 
         botReply = botReply.replace(/\*\*/g, "").replace(/\*/g, "・");
