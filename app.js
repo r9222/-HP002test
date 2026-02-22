@@ -39,7 +39,7 @@ window.onload = () => {
     mkCat(); mkTgt(); upd(); ren();
 };
 
-// --- 食品選択・表示系 (既存ロジック) ---
+// --- 食品選択・表示系 (既存ロジック維持) ---
 function mkCat() {
     const d = document.getElementById('cat-btns');
     if(typeof DB === 'undefined') return;
@@ -377,12 +377,12 @@ function drawBodyGraph(mode, btn) {
 function exportData() { const data = { dat: localStorage.getItem('tf_dat'), tg: localStorage.getItem('tf_tg'), fav: localStorage.getItem('tf_fav'), my: localStorage.getItem('tf_my'), hist: localStorage.getItem('tf_hist'), body: localStorage.getItem('tf_body') }; const blob = new Blob([JSON.stringify(data)], {type: "text/json"}); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `pfc_backup_${new Date().toISOString().slice(0,10)}.json`; link.click(); }
 function importData(input) { const file = input.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = function(e) { try { const data = JSON.parse(e.target.result); Object.keys(data).forEach(k => { if(data[k]) localStorage.setItem('tf_'+k, data[k]); }); alert("データを復元しました！"); location.reload(); } catch (err) { alert("ファイルが正しくありません"); } }; reader.readAsText(file); }
 
-// ▼▼▼ チャット機能JS (iOS/Android両対応・自動送信タイマー版) ▼▼▼
+// ▼▼▼ チャット機能JS (iOS安定化・ハイブリッド版) ▼▼▼
 
 const gasUrl = "https://script.google.com/macros/s/AKfycby6THg5PeEHYWWwxFV9VvY7kJ3MAMwoEuaJNs_EK_VZWv9alxqsi25RxDQ2wikkI1-H/exec";
 let speechRecognition;
 let isRecording = false;
-let recognitionTimer; // iOS向けの無音検知タイマー
+let recognitionTimer; 
 
 function toggleChat() {
     const win = document.getElementById('tama-chat-window'); const btn = document.getElementById('tama-chat-btn');
@@ -400,20 +400,28 @@ function toggleMic() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) { alert("音声入力に対応していないたま..."); return; }
 
+    // 前回のタイマーを確実に消去
+    clearTimeout(recognitionTimer);
+
     speechRecognition = new SpeechRecognition();
     speechRecognition.lang = 'ja-JP';
-    speechRecognition.continuous = true; // ユーザーが止めるまで維持
-    speechRecognition.interimResults = true; // 途中経過を表示
+    speechRecognition.interimResults = true; 
+
+    // iOSかどうかを判定
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    
+    // ★ iOSでは continuous を false にすることで「即終了」を回避し、
+    // Android では true にして快適さを維持する
+    speechRecognition.continuous = !isIOS; 
 
     let finalResult = "";
 
     speechRecognition.onstart = () => {
         isRecording = true; micBtn.classList.add('recording');
-        inputEl.placeholder = "聞き取り中...（話し終えると自動で送信）";
+        inputEl.placeholder = isIOS ? "聞き取り中...（話し終えると送信）" : "聞き取り中...（自動送信）";
     };
 
     speechRecognition.onresult = (event) => {
-        // 声が入力されるたびにタイマーをリセットする
         clearTimeout(recognitionTimer);
 
         let interimTranscript = '';
@@ -421,7 +429,7 @@ function toggleMic() {
             const transcript = event.results[i][0].transcript;
             if (event.results[i].isFinal) {
                 finalResult += transcript;
-                // 文章が一旦確定したら、1.2秒〜1.5秒の無音で自動停止させる（iOS対策）
+                // iOSでもAndroidでも、声が途切れて1.5秒で自動停止させる
                 recognitionTimer = setTimeout(() => {
                     if(isRecording) speechRecognition.stop();
                 }, 1500);
@@ -440,7 +448,6 @@ function toggleMic() {
     speechRecognition.onend = () => {
         isRecording = false; micBtn.classList.remove('recording');
         inputEl.placeholder = "例: 夜ご飯なにがいい？";
-        // 録音が終わった際に、テキストがあれば自動送信
         if (inputEl.value.trim().length > 0) { sendTamaChat(); }
     };
 
