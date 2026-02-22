@@ -575,12 +575,10 @@ function importData(input) {
     reader.readAsText(file);
 }
 
-// ▼▼▼ チャット機能JS (GAS中継 & 音声入力対応版) ▼▼▼
+// ▼▼▼ チャット機能JS (修正版) ▼▼▼
 
-// ★HPで使っている、AIを中継するGASのURL
 const gasUrl = "https://script.google.com/macros/s/AKfycby6THg5PeEHYWWwxFV9VvY7kJ3MAMwoEuaJNs_EK_VZWv9alxqsi25RxDQ2wikkI1-H/exec";
 
-// ★音声認識用の変数
 let speechRecognition;
 let isRecording = false;
 
@@ -607,69 +605,79 @@ function setupChatEnterKey() {
     });
 }
 
-// ★マイク機能の制御
 function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
     const inputEl = document.getElementById('chat-input');
 
-    // 録音中なら停止する
     if (isRecording) {
         if (speechRecognition) speechRecognition.stop();
         return;
     }
 
-    // ブラウザが音声認識に対応しているかチェック
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-        alert("お使いのブラウザは音声入力に対応していないたま...。\niPhoneならSafari、AndroidならChromeの最新版を使ってほしいたま！");
+        alert("お使いのブラウザは音声入力に対応していないたま...");
         return;
     }
 
     speechRecognition = new SpeechRecognition();
     speechRecognition.lang = 'ja-JP';
-    speechRecognition.interimResults = false; // 確定した結果だけを取得
+    speechRecognition.continuous = true; // ★ 連続認識を有効化
+    speechRecognition.interimResults = true; // ★ 途中経過を表示
     speechRecognition.maxAlternatives = 1;
 
-    // 録音がスタートした時の処理
     speechRecognition.onstart = () => {
         isRecording = true;
         micBtn.classList.add('recording');
-        inputEl.placeholder = "音声を聞き取り中だたま...";
+        inputEl.placeholder = "聞き取り中...（話し終えたらマイクをタップ）";
     };
 
-    // 音声を認識した時の処理
     speechRecognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        // 入力欄に文字を入れる
-        inputEl.value = transcript;
-        
-        // ★文字が入ったら、そのまま自動でAIに送信する！
-        sendTamaChat(); 
-    };
+        let interimTranscript = '';
+        let finalTranscript = '';
 
-    // エラーが起きた時の処理
-    speechRecognition.onerror = (event) => {
-        console.error("Speech recognition error:", event.error);
-        if(event.error === 'not-allowed') {
-            alert("マイクのアクセスが許可されていないたま！\nスマホやブラウザの設定から、マイクの使用を許可してほしいたま。");
-        } else if (event.error === 'no-speech') {
-            // 無音だった場合
-            inputEl.placeholder = "例: 夜ご飯なにがいい？";
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+                finalTranscript += event.results[i][0].transcript;
+            } else {
+                interimTranscript += event.results[i][0].transcript;
+            }
+        }
+
+        // 途中経過を入力欄に反映（ユーザーへのフィードバック）
+        if (interimTranscript) {
+            inputEl.value = interimTranscript;
+        }
+
+        // 確定したテキストがある場合、それを入力欄にセット
+        if (finalTranscript) {
+            inputEl.value = finalTranscript;
+            // 確定したら一旦止めて送信する運用（モバイルでの誤作動防止）
+            speechRecognition.stop();
         }
     };
 
-    // 録音が終わった時の処理（成功・失敗・停止に関わらず呼ばれる）
+    speechRecognition.onerror = (event) => {
+        console.error("Speech recognition error:", event.error);
+        if(event.error === 'no-speech') {
+            inputEl.placeholder = "声が聞こえないたま...";
+        }
+    };
+
     speechRecognition.onend = () => {
         isRecording = false;
         micBtn.classList.remove('recording');
         inputEl.placeholder = "例: 夜ご飯なにがいい？";
+        
+        // テキストが入っていれば送信
+        if (inputEl.value.trim().length > 0) {
+            sendTamaChat();
+        }
     };
 
-    // 音声認識をスタート
     speechRecognition.start();
 }
 
-// メッセージ送信（GASへ投げる処理）
 async function sendTamaChat() {
     const inputEl = document.getElementById('chat-input');
     const sendBtn = document.getElementById('chat-send');
@@ -718,7 +726,6 @@ ${text}
         const data = await response.json();
         
         if (data.error) {
-            console.error("API Error Details:", data.error);
             addChatMsg('bot', `エラーだたま... (${data.error.message})`);
             removeMsg(loadingId);
             return;
@@ -734,7 +741,6 @@ ${text}
             if (rawText.includes("[DATA]")) {
                 const parts = rawText.split("[DATA]");
                 botReply = parts[0].replace(/たまちゃんの返答:/g, "").trim();
-                
                 const dataString = parts[1].trim();
                 const dataParts = dataString.split(",");
                 
@@ -753,7 +759,6 @@ ${text}
         }
 
         removeMsg(loadingId);
-        
         botReply = botReply.replace(/\*\*/g, "").replace(/\*/g, "・").replace(/#/g, "");
         addChatMsg('bot', botReply);
 
@@ -767,9 +772,7 @@ ${text}
                 U: "AI推測" 
             };
             lst.push(newData);
-            sv(); 
-            ren(); 
-            upd(); 
+            sv(); ren(); upd(); 
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -777,9 +780,8 @@ ${text}
         if (chatHistory.length > 6) chatHistory.shift();
 
     } catch (error) {
-        console.error("Fetch Error:", error);
         removeMsg(loadingId);
-        addChatMsg('bot', '通信エラーだたま...。通信環境を確認してもう一度送ってたま！');
+        addChatMsg('bot', '通信エラーだたま...。');
     } finally {
         inputEl.disabled = false;
         sendBtn.disabled = false;
@@ -790,27 +792,17 @@ ${text}
 function addChatMsg(role, text) {
     const box = document.getElementById('chat-messages');
     const id = 'msg-' + Date.now();
-    
     const div = document.createElement('div');
     div.className = `msg ${role}`;
     div.id = id;
-    
     const iconDiv = document.createElement('div');
     iconDiv.className = 'icon';
     iconDiv.innerHTML = '<img src="new_tama.png">';
-    
     const textDiv = document.createElement('div');
     textDiv.className = 'text';
     textDiv.innerText = text;
-
-    if(role === 'bot') {
-        div.appendChild(iconDiv);
-        div.appendChild(textDiv);
-    } else {
-        div.appendChild(textDiv);
-        div.appendChild(iconDiv);
-    }
-
+    if(role === 'bot') { div.appendChild(iconDiv); div.appendChild(textDiv); } 
+    else { div.appendChild(textDiv); div.appendChild(iconDiv); }
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
     return id;
@@ -826,14 +818,12 @@ function getAppContextStr() {
     lst.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; });
     const remCal = TG.cal - t.Cal;
     const remF = TG.f - t.F;
-
     return `
     - 目標カロリー: ${TG.cal}kcal (モード: ${TG.label})
     - 現在の摂取: ${t.Cal}kcal (残り ${remCal}kcal)
     - P(タンパク質): ${t.P.toFixed(1)}g / 目標 ${TG.p}g
-    - F(脂質): ${t.F.toFixed(1)}g / 目標 ${TG.f}g (残り ${remF.toFixed(1)}g)
+    - F(脂質): ${t.F.toFixed(1)}g / 目標 ${TG.f}g
     - C(炭水化物): ${t.C.toFixed(1)}g / 目標 ${TG.c}g
     - 今日食べたものリスト: ${lst.map(x => x.N).join(', ') || 'まだ何も食べてない'}
     `;
 }
-// ▲▲▲ チャット機能JS ここまで ▲▲▲
