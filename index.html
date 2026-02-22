@@ -7,7 +7,7 @@
 <title>たまフィットPFC</title>
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
 <style>
-/* ▼▼▼ デザイン設定 (Version 8 完全復元) ▼▼▼ */
+/* ▼▼▼ デザイン設定 (Version 8 完全復元 ＋ 音声対応) ▼▼▼ */
 :root {
     --th: #f55a94;       /* ピンク */
     --bg: #fdf2f4;       /* 薄いピンク背景 */
@@ -209,7 +209,7 @@ svg { width: 100%; height: 100%; overflow: visible; }
 .m-save { background: var(--th); color: #fff; }
 .m-cancel { background: #eee; color: #333; }
 
-/* ▼▼▼ チャット機能デザイン (Version 10) ▼▼▼ */
+/* ▼▼▼ チャット機能デザイン (Version 11 音声強化版) ▼▼▼ */
 #tama-chat-btn {
     position: fixed; bottom: 20px; right: 20px; z-index: 9999;
     display: flex; align-items: center; justify-content: center;
@@ -255,22 +255,22 @@ svg { width: 100%; height: 100%; overflow: visible; }
     background: var(--th); color: white; border-top-left-radius: 18px; border-top-right-radius: 2px;
 }
 
-/* ▼ マイクボタン追加によるレイアウト調整 ▼ */
 .chat-footer {
     padding: 10px; background: #fff; border-top: 1px solid #eee; display: flex; gap: 8px; align-items: center;
 }
+
 /* マイクボタンのデザイン */
 #mic-btn {
     background: #f0f2f5; color: #555; border-radius: 50%; width: 40px; height: 40px; border: none;
     display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer;
     flex-shrink: 0; transition: all 0.3s ease;
 }
-/* 録音中のマイクボタンアニメーション（赤く光る） */
+/* 録音中のアニメーション */
 #mic-btn.recording {
     background: #ff4757; color: white;
-    animation: pulse 1.5s infinite;
+    animation: mic-pulse 1.5s infinite;
 }
-@keyframes pulse {
+@keyframes mic-pulse {
     0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7); }
     70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 71, 87, 0); }
     100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
@@ -279,10 +279,10 @@ svg { width: 100%; height: 100%; overflow: visible; }
 #chat-input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 20px; outline: none; }
 #chat-input:disabled { background-color: #f9f9f9; color: #999; cursor: not-allowed; }
 
-.chat-footer #chat-send {
+.chat-footer button#chat-send {
     padding: 0 16px; height: 40px; border-radius: 20px; background: var(--th); color: white; font-weight: bold; border: none; cursor: pointer; transition: 0.3s;
 }
-.chat-footer #chat-send:disabled { background-color: #ccc; cursor: not-allowed; }
+.chat-footer button#chat-send:disabled { background-color: #ccc; cursor: not-allowed; }
 
 @media (max-width: 600px) {
     #tama-chat-window { width: 92%; right: 4%; bottom: 85px; }
@@ -301,14 +301,13 @@ svg { width: 100%; height: 100%; overflow: visible; }
 <div class="container">
     <div class="alert-box">
         <span class="alert-title">⚠️ 随時アップデート中</span>
-        入力内容はブラウザに保存されますが、念のためスクショやテキストコピーでの保存を推奨します。<br>
-        <strong>【仕様変更】</strong>日付が変わっても自動リセットされなくなりました。「保存してリセット」ボタンで日付を選んで保存・リセットできます。
+        入力内容はブラウザに保存されます。
     </div>
 
     <div class="tgt-sec">
         <div class="tgt-tog" onclick="toggleTgt()">⚙️ 目標設定: <span id="tgt-disp">設定なし</span> ▼</div>
         <div class="tgt-btns" id="tgt-btns"></div>
-        <div id="cust-tgt" style="display:none;">
+        <div id="cust-tgt">
             <div class="cust-row">
                 <input type="text" inputmode="decimal" id="cust-cal" placeholder="Cal">
                 <select id="pfc-mode" class="pfc-sel">
@@ -319,16 +318,16 @@ svg { width: 100%; height: 100%; overflow: visible; }
                 </select>
                 <button class="cust-btn" onclick="applyCust()">設定</button>
             </div>
-            <span style="font-size:10px;color:#666">自由な値とバランスを設定</span>
         </div>
     </div>
     <div class="dash">
-        <div class="dash-t">今日の目標 <span id="pfc-ratio-disp">(3:2:5)</span></div>
+        <div class="dash-t">今日の目標</div>
         <div class="mtr"><div class="mtr-l"><span>Cal</span><span id="rem-cal" class="rem"></span></div><div class="bar-bg"><div id="bar-cal" class="bar"></div></div></div>
         <div class="mtr"><div class="mtr-l"><span>P</span><span id="rem-p" class="rem"></span></div><div class="bar-bg"><div id="bar-p" class="bar"></div></div></div>
         <div class="mtr"><div class="mtr-l"><span>F</span><span id="rem-f" class="rem"></span></div><div class="bar-bg"><div id="bar-f" class="bar"></div></div></div>
         <div class="mtr"><div class="mtr-l"><span>C</span><span id="rem-c" class="rem"></span></div><div class="bar-bg"><div id="bar-c" class="bar"></div></div></div>
     </div>
+
     <div class="inp-sec">
         <div class="s-box"><span class="s-icon">🔍</span><input type="text" class="s-inp" id="s-inp" placeholder="検索" oninput="filterF()"><div class="s-res" id="s-res"></div></div>
         <label>1. カテゴリを選ぶ</label>
@@ -341,7 +340,6 @@ svg { width: 100%; height: 100%; overflow: visible; }
             <div id="pv-bar" class="pv-bar" style="display:none;" onclick="togBd()">
                 <div id="pv-name" style="font-weight:bold;color:var(--th)"></div>
                 <div id="pv-stat" style="font-size:13px;font-weight:bold;"></div>
-                <div style="font-size:10px;color:#888;text-align:right;">🖊️タップして詳細・微調整</div>
             </div>
             <div id="reg-bd" class="reg-bd">
                 <div class="cls-bd" onclick="clsBd()">✕ 閉じる</div>
@@ -351,107 +349,64 @@ svg { width: 100%; height: 100%; overflow: visible; }
                     <div><div style="font-size:11px;color:#666">F</div><input type="text" inputmode="decimal" id="m-f" oninput="calcM()"></div>
                 </div>
                 <div style="margin-top:5px"><div style="font-size:11px;color:#666">C</div><input type="text" inputmode="decimal" id="m-c" oninput="calcM()"></div>
-                <div style="margin-top:5px;border-top:1px dashed #ddd;padding-top:5px">
-                    <div style="font-size:11px;color:var(--th);font-weight:bold">倍率・個数</div><input type="text" inputmode="decimal" id="m-mul" value="1" style="text-align:center;font-weight:bold" oninput="calcM()">
-                </div>
-                <div style="font-size:11px;color:#666">Cal (自動/上書き)</div><input type="text" inputmode="decimal" id="m-cal" style="background:#f9f9f9;font-weight:bold" oninput="calcM()">
-                <button class="btn-my" onclick="regMyFood()">💾 この内容をMy食品に登録</button>
+                <input type="text" inputmode="decimal" id="m-mul" value="1" style="display:none;">
+                <div style="font-size:11px;color:#666">Cal</div><input type="text" inputmode="decimal" id="m-cal" oninput="calcM()">
+                <button class="btn-my" onclick="regMyFood()">💾 My食品に登録</button>
             </div>
             <button id="btn-reg" class="btn-add" onclick="addM()">リストに追加する</button>
         </div>
     </div>
     <button class="my-manual-btn" onclick="openMan()">▼ 完全手入力・My食品登録</button>
+
     <h3 style="color:var(--th);text-align:center;">今日の記録</h3>
     <ul class="f-list" id="f-list-ul"></ul>
     <div style="text-align:right;font-size:18px;">合計: <span id="tot-cal" style="color:var(--th);font-weight:bold;">0</span> kcal</div>
-    
+
     <div class="ft-btns">
-        <button class="b-cp" onclick="cpRes()">📋 結果をテキストにコピー</button>
-        <button class="b-rst" onclick="rst()">📅 記録を保存してリセット</button>
-        
-        <button class="b-hst" onclick="togHist()">📅 履歴を見る</button>
-        <div id="hist-area"><p style="text-align:center;font-weight:bold;">【過去の記録】</p><div id="h-list"></div></div>
-        
-        <button class="b-hst" style="background:#fff;border-color:#666;color:#666" onclick="togGraph()">📊 統計・グラフ</button>
+        <button class="b-cp" onclick="cpRes()">📋 コピー</button>
+        <button class="b-rst" onclick="rst()">📅 保存してリセット</button>
+        <button class="b-hst" onclick="togHist()">📅 履歴</button>
+        <div id="hist-area"><div id="h-list"></div></div>
+        <button class="b-hst" style="background:#fff;border-color:#666;color:#666" onclick="togGraph()">📊 統計</button>
         <div id="graph-area" class="graph-sec">
             <div class="g-btns">
                 <button class="g-btn act" onclick="drawGraph('week',this)">週間</button>
                 <button class="g-btn" onclick="drawGraph('month',this)">月間</button>
             </div>
-            <div class="graph-legend">
-                <div class="leg-item"><div class="leg-box seg-p"></div>P</div>
-                <div class="leg-item"><div class="leg-box seg-f"></div>F</div>
-                <div class="leg-item"><div class="leg-box seg-c"></div>C</div>
-            </div>
             <div id="chart-box" class="chart-box"></div>
-            <div id="stat-txt" class="stat-row">グラフの棒をタップで詳細表示</div>
+            <div id="stat-txt" class="stat-row">平均摂取カロリーを表示</div>
         </div>
     </div>
 
     <div class="body-sec">
         <div class="body-head" onclick="toggleBody()">📉 体組成・ボディメイク ▼</div>
         <div id="body-content" style="display:none;">
-            <div class="b-toggle">
-                <div class="b-tog-btn act" onclick="drawBodyGraph('A', this)">モードA<br>(体重・脂肪率・ウエスト)</div>
-                <div class="b-tog-btn" onclick="drawBodyGraph('B', this)">モードB<br>(除脂肪・脂肪量)</div>
-            </div>
-            <div id="body-legend" class="body-legend-box"></div>
-            
             <div id="body-chart-area" class="body-graph-box"></div>
-            <div id="body-pop" class="g-pop"></div>
-            
             <div class="body-inp-grid">
                 <div class="body-inp-item"><span>日付</span><input type="date" id="b-date"></div>
-                <div class="body-inp-item"><span>体重(kg)</span><input type="text" inputmode="decimal" id="b-weight" placeholder="60.0"></div>
-                <div class="body-inp-item"><span>体脂肪率(%)</span><input type="text" inputmode="decimal" id="b-fat" placeholder="20.0"></div>
-                <div class="body-inp-item"><span>ウエスト(cm)</span><input type="text" inputmode="decimal" id="b-waist" placeholder="70.0"></div>
+                <div class="body-inp-item"><span>体重</span><input type="text" inputmode="decimal" id="b-weight"></div>
+                <div class="body-inp-item"><span>体脂肪</span><input type="text" inputmode="decimal" id="b-fat"></div>
+                <div class="body-inp-item"><span>ウエスト</span><input type="text" inputmode="decimal" id="b-waist"></div>
             </div>
             <button class="btn-body-rec" onclick="saveBody()">記録する</button>
-            <p style="font-size:10px;color:#666;text-align:center;">※入力は任意。体脂肪率を入れるとモードBが計算されます。</p>
-            
-            <div style="margin-top:20px;border-top:1px dashed #ccc;padding-top:10px;">
-                <div style="text-align:center;font-size:12px;color:#666;margin-bottom:5px;">履歴一覧 (タップで修正)</div>
-                <div id="body-hist-list" style="max-height:150px;overflow-y:auto;background:#f9f9f9;border-radius:8px;"></div>
-            </div>
+            <div id="body-hist-list" style="margin-top:10px;"></div>
         </div>
     </div>
 
-    <div class="info-area">
-        <details class="info-box">
-            <summary class="info-sum">📖 使い方・便利機能</summary>
-            <div class="info-con">
-                <h4>1. リセット機能の変更</h4><p>日付が変わってもデータは消えません。「記録を保存してリセット」ボタンを押し、日付を選んで保存してください。</p>
-                <h4>2. 体組成管理</h4><p>体重、体脂肪、ウエストの推移を記録できます。グラフには日付や数値が表示され、過去データの修正も可能です。</p>
-            </div>
-        </details>
-        <details class="info-box">
-            <summary class="info-sum">🔔 アップデート履歴</summary>
-            <div class="info-con">
-                <ul>
-                    <li><strong>Ver 4.1 (Latest)</strong><span class="ver-badge">最新</span><br>
-                    ・✨ 🎙️ 音声入力（マイク機能）に対応しました！<br>
-                    ・✨ たまちゃんAIが最新のモデル(GAS経由)に進化しました<br>
-                    </li>
-                </ul>
-            </div>
-        </details>
-    </div>
-
     <div class="backup-sec">
-        <button class="b-bk" onclick="exportData()">📤 データを保存</button>
-        <button class="b-bk" onclick="document.getElementById('imp-file').click()">📥 データを復元</button>
+        <button class="b-bk" onclick="exportData()">📤 保存</button>
+        <button class="b-bk" onclick="document.getElementById('imp-file').click()">📥 復元</button>
         <input type="file" id="imp-file" style="display:none" onchange="importData(this)">
     </div>
 </div>
 
 <div id="reset-modal" class="modal-overlay">
     <div class="modal-box">
-        <span class="modal-title">記録を保存して<br>リセットしますか？</span>
-        <p style="font-size:12px;color:#666;margin-bottom:10px;">どの日付の記録として保存しますか？</p>
+        <span class="modal-title">記録を保存してリセット？</span>
         <input type="date" id="reset-date" class="modal-date">
         <div class="modal-btns">
-            <button class="m-btn m-cancel" onclick="closeResetModal()">キャンセル</button>
-            <button class="m-btn m-save" onclick="confirmReset()">保存してリセット</button>
+            <button class="m-btn m-cancel" onclick="closeResetModal()">中止</button>
+            <button class="m-btn m-save" onclick="confirmReset()">実行</button>
         </div>
     </div>
 </div>
