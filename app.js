@@ -604,6 +604,8 @@ function setupChatEnterKey() {
 
 // ▼▼ app.js の toggleMic() 関数をこれで上書きしてください ▼▼
 
+// ▼▼ app.js の toggleMic() 関数をこれで上書きしてください ▼▼
+
 function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
     const inputEl = document.getElementById('chat-input');
@@ -635,25 +637,39 @@ function toggleMic() {
 
     recognition = new SpeechRecognition();
     recognition.lang = 'ja-JP';
-    recognition.continuous = true; 
+    // ★ 修正①：Androidの分裂バグを防ぐため false に変更
+    recognition.continuous = false; 
     recognition.interimResults = true;
+
+    // ★ 修正②：確定した言葉を保存する箱を準備
+    let currentFinalTranscript = ''; 
 
     recognition.onstart = () => {
         isRecording = true;
+        currentFinalTranscript = ''; // マイク起動時に毎回リセット
+        inputEl.value = ''; // 入力欄もリセット
         micBtn.classList.add('recording');
         inputEl.placeholder = "たまちゃんが聞いてるたま！喋って！";
     };
 
-    // ★ ここがAndroidの「連打増殖バグ」を直した魔法のコード！
+    // ★ 修正③：プロが使う標準的なテキスト結合処理に変更
     recognition.onresult = (event) => {
         if (!isRecording) return;
 
-        let transcript = '';
-        // 過去の言葉を足し算するのをやめ、常にAIが返してくる「最新の文章全体」で上書きする
-        for (let i = 0; i < event.results.length; ++i) {
-            transcript += event.results[i][0].transcript;
+        let interimTranscript = '';
+
+        // 古い重複データを無視し、新しい言葉だけを正確に処理します
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            let text = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+                currentFinalTranscript += text;
+            } else {
+                interimTranscript += text;
+            }
         }
-        inputEl.value = transcript;
+
+        // 確定した言葉 ＋ 途中経過の言葉 を合体させて表示
+        inputEl.value = currentFinalTranscript + interimTranscript;
 
         clearTimeout(speechTimeout);
         speechTimeout = setTimeout(() => {
@@ -821,3 +837,4 @@ function getAppContextStr() {
 }
 
 // ▲▲▲ チャット機能JS ここまで ▲▲▲
+
