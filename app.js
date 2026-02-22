@@ -604,28 +604,16 @@ function setupChatEnterKey() {
 
 // ▼▼ app.js の toggleMic() 関数をこれで上書きしてください ▼▼
 
-// ▼▼ app.js の toggleMic() 関数をこれで上書きしてください ▼▼
-
 function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
     const inputEl = document.getElementById('chat-input');
 
-    function stopAndSend() {
-        if (!isRecording) return;
-        isRecording = false; 
+    // マイク録音中にボタンを押したらキャンセルする処理
+    if (isRecording) {
+        isRecording = false;
         micBtn.classList.remove('recording');
         inputEl.placeholder = "例: 夜ご飯なにがいい？";
-        
-        try { recognition.stop(); } catch(e) {} 
-        
-        if (inputEl.value.trim() !== "") {
-            sendTamaChat();
-        }
-    }
-
-    if (isRecording) {
-        clearTimeout(speechTimeout);
-        stopAndSend(); 
+        try { recognition.stop(); } catch(e) {}
         return;
     }
 
@@ -637,50 +625,36 @@ function toggleMic() {
 
     recognition = new SpeechRecognition();
     recognition.lang = 'ja-JP';
-    // ★ 修正①：Androidの分裂バグを防ぐため false に変更
+    // ★ 魔法の設定：Androidのバグを封じるため「途中経過」を完全にオフにする！
     recognition.continuous = false; 
-    recognition.interimResults = true;
-
-    // ★ 修正②：確定した言葉を保存する箱を準備
-    let currentFinalTranscript = ''; 
+    recognition.interimResults = false; 
 
     recognition.onstart = () => {
         isRecording = true;
-        currentFinalTranscript = ''; // マイク起動時に毎回リセット
-        inputEl.value = ''; // 入力欄もリセット
         micBtn.classList.add('recording');
-        inputEl.placeholder = "たまちゃんが聞いてるたま！喋って！";
+        inputEl.placeholder = "たまちゃん聞いてるたま！喋って！";
+        inputEl.value = ''; // 入力欄を綺麗にする
     };
 
-    // ★ 修正③：プロが使う標準的なテキスト結合処理に変更
+    // ★ 喋り終わった瞬間に「1回だけ」呼ばれる（絶対にダブらない）
     recognition.onresult = (event) => {
         if (!isRecording) return;
-
-        let interimTranscript = '';
-
-        // 古い重複データを無視し、新しい言葉だけを正確に処理します
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-            let text = event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-                currentFinalTranscript += text;
-            } else {
-                interimTranscript += text;
-            }
-        }
-
-        // 確定した言葉 ＋ 途中経過の言葉 を合体させて表示
-        inputEl.value = currentFinalTranscript + interimTranscript;
-
-        clearTimeout(speechTimeout);
-        speechTimeout = setTimeout(() => {
-            stopAndSend(); 
-        }, 1500); 
+        
+        // 最終結果の1行だけをスポッと入れる
+        inputEl.value = event.results[0][0].transcript;
+        
+        // 入力されたら「タイマーを待たずに」即座に送信！
+        isRecording = false;
+        micBtn.classList.remove('recording');
+        inputEl.placeholder = "例: 夜ご飯なにがいい？";
+        sendTamaChat();
     };
 
     recognition.onerror = (event) => {
-        clearTimeout(speechTimeout);
         if (event.error === 'aborted') {
-            if (isRecording) stopAndSend(); 
+            isRecording = false;
+            micBtn.classList.remove('recording');
+            inputEl.placeholder = "例: 夜ご飯なにがいい？";
             return;
         }
         if (event.error === 'no-speech') {
@@ -689,22 +663,27 @@ function toggleMic() {
             inputEl.placeholder = "声が聞こえなかったたま。";
             return;
         }
-
         isRecording = false;
         micBtn.classList.remove('recording');
         addChatMsg('bot', `エラー(${event.error})で止まっちゃったたま。`);
     };
 
     recognition.onend = () => {
-        clearTimeout(speechTimeout);
-        if (isRecording) stopAndSend(); 
+        // 万が一、送信されずにマイクが切れた場合の保険
+        if (isRecording) {
+            isRecording = false;
+            micBtn.classList.remove('recording');
+            inputEl.placeholder = "例: 夜ご飯なにがいい？";
+            if (inputEl.value.trim() !== "") {
+                sendTamaChat();
+            }
+        }
     };
 
     recognition.start();
 }
 
 // ▲▲ ここまで ▲▲
-
 async function sendTamaChat() {
     const inputEl = document.getElementById('chat-input');
     const text = inputEl.value.trim();
@@ -837,4 +816,5 @@ function getAppContextStr() {
 }
 
 // ▲▲▲ チャット機能JS ここまで ▲▲▲
+
 
