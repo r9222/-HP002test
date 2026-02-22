@@ -1,4 +1,4 @@
-// app.js : たまフィットPFCアプリ 統合メインロジック (iOS対応・沈黙タイマー版)
+// app.js : たまフィットPFCアプリ 統合メインロジック (iOS強制自動送信対応版)
 
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std" }; 
 let lst = []; 
@@ -128,13 +128,13 @@ function upd() {
     setBar('Cal', t.Cal, TG.cal, 'kcal'); setBar('P', t.P, TG.p, 'g'); setBar('F', t.F, TG.f, 'g'); setBar('C', t.C, TG.c, 'g');
 }
 
-// --- チャット・音声入力機能 (iOS沈黙タイマー対応版) ---
+// --- チャット・音声入力機能 (強制自動送信 対応版) ---
 
 const gasUrl = "https://script.google.com/macros/s/AKfycby6THg5PeEHYWWwxFV9VvY7kJ3MAMwoEuaJNs_EK_VZWv9alxqsi25RxDQ2wikkI1-H/exec";
 let recognition;
 let isRecording = false;
 let finalTranscript = ''; 
-let speechTimeout = null; // ★iOS対策用の沈黙タイマー
+let speechTimeout = null;
 
 function toggleChat() {
     const win = document.getElementById('tama-chat-window');
@@ -147,14 +147,29 @@ function setupChatEnterKey() {
     input.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) sendTamaChat(); });
 }
 
+// ★マイクと送信の制御を統合した魔法の関数
 function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
     const inputEl = document.getElementById('chat-input');
 
-    if (isRecording) {
+    // ▼ iOSのSafari対策: 強制的に終了して、文字があれば直接送信を叩き込む関数
+    function stopAndSend() {
+        if (!isRecording) return;
         isRecording = false;
-        if (recognition) recognition.stop();
-        clearTimeout(speechTimeout); // タイマー解除
+        micBtn.classList.remove('recording');
+        inputEl.placeholder = "例: 夜ご飯なにがいい？";
+        
+        try { recognition.stop(); } catch(e) {} // 一応マイクを止める
+        
+        // 文字が入っていれば、直接 sendTamaChat() を発動！
+        if (inputEl.value.trim() !== "") {
+            sendTamaChat();
+        }
+    }
+
+    if (isRecording) {
+        clearTimeout(speechTimeout);
+        stopAndSend(); // 途中でマイクボタンを押して止めた場合も、自動送信する
         return;
     }
 
@@ -166,7 +181,7 @@ function toggleMic() {
 
     recognition = new SpeechRecognition();
     recognition.lang = 'ja-JP';
-    recognition.continuous = true; // ★iOSのために一度連続認識にして、自前のタイマーで切る作戦
+    recognition.continuous = true; 
     recognition.interimResults = true;
 
     recognition.onstart = () => {
@@ -185,24 +200,27 @@ function toggleMic() {
         }
         inputEl.value = finalTranscript + interimTranscript;
 
-        // ★魔法の沈黙タイマー（声がするたびにリセットされる）
+        // ★声がするたびにタイマーをリセット。1.5秒黙ったら直接送信へ！
         clearTimeout(speechTimeout);
         speechTimeout = setTimeout(() => {
-            if (isRecording) {
-                console.log("沈黙を検知したたま。録音を止めるたま！");
-                recognition.stop(); // 1.5秒無音なら強制的に止める -> onendが呼ばれる
-            }
-        }, 1500); // 1.5秒（1500ミリ秒）
+            console.log("沈黙検知。強制的に送信するたま！");
+            stopAndSend(); 
+        }, 1500); 
     };
 
     recognition.onerror = (event) => {
         console.warn("Speech Error:", event.error);
         clearTimeout(speechTimeout);
         
-        if (event.error === 'aborted' || event.error === 'no-speech') {
+        // iOS特有の「aborted（中断）」エラーの回避
+        if (event.error === 'aborted') {
+            if (isRecording) stopAndSend(); // 送信が漏れていたらここで強制送信
+            return;
+        }
+        if (event.error === 'no-speech') {
             isRecording = false;
             micBtn.classList.remove('recording');
-            inputEl.placeholder = "例: 夜ご飯なにがいい？";
+            inputEl.placeholder = "声が聞こえなかったたま。";
             return;
         }
 
@@ -215,19 +233,13 @@ function toggleMic() {
 
     recognition.onend = () => {
         clearTimeout(speechTimeout);
-        isRecording = false;
-        micBtn.classList.remove('recording');
-        inputEl.placeholder = "例: 夜ご飯なにがいい？";
-        
-        // ★ 録音が終わった瞬間に、文字が入っていれば勝手に送信する
-        if (inputEl.value.trim() !== "") {
-            sendTamaChat();
-        }
+        if (isRecording) stopAndSend(); // Androidなどで自然に終わった場合
     };
 
     recognition.start();
 }
 
+// ★AI送信とPFC自動登録
 async function sendTamaChat() {
     const inputEl = document.getElementById('chat-input');
     const text = inputEl.value.trim();
