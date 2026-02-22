@@ -602,6 +602,8 @@ function setupChatEnterKey() {
     input.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) sendTamaChat(); });
 }
 
+// ▼▼ app.js の toggleMic() 関数をこれで上書きしてください ▼▼
+
 function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
     const inputEl = document.getElementById('chat-input');
@@ -638,21 +640,20 @@ function toggleMic() {
 
     recognition.onstart = () => {
         isRecording = true;
-        finalTranscript = ''; 
         micBtn.classList.add('recording');
         inputEl.placeholder = "たまちゃんが聞いてるたま！喋って！";
     };
 
+    // ★ ここがAndroidの「連打増殖バグ」を直した魔法のコード！
     recognition.onresult = (event) => {
         if (!isRecording) return;
 
-        let interimTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-            let transcript = event.results[i][0].transcript;
-            if (event.results[i].isFinal) finalTranscript += transcript;
-            else interimTranscript += transcript;
+        let transcript = '';
+        // 過去の言葉を足し算するのをやめ、常にAIが返してくる「最新の文章全体」で上書きする
+        for (let i = 0; i < event.results.length; ++i) {
+            transcript += event.results[i][0].transcript;
         }
-        inputEl.value = finalTranscript + interimTranscript;
+        inputEl.value = transcript;
 
         clearTimeout(speechTimeout);
         speechTimeout = setTimeout(() => {
@@ -685,6 +686,8 @@ function toggleMic() {
 
     recognition.start();
 }
+
+// ▲▲ ここまで ▲▲
 
 async function sendTamaChat() {
     const inputEl = document.getElementById('chat-input');
@@ -816,4 +819,5 @@ function getAppContextStr() {
     - 今日食べたものリスト: ${lst.map(x => x.N).join(', ') || 'まだ何も食べてない'}
     `;
 }
+
 // ▲▲▲ チャット機能JS ここまで ▲▲▲
