@@ -1,4 +1,4 @@
-// app.js : アプリの脳みそ (Gemma 3 直叩き・ハイブリッド検索 3ボタン＆Android安定版)
+// app.js : アプリの脳みそ (Gemma 3 直叩き・ハイブリッド検索・Androidアプリ連携対応版)
 
 // ■ グローバル変数
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std" }; 
@@ -611,39 +611,76 @@ function importData(input) {
     reader.readAsText(file);
 }
 
-// ▼▼▼ チャット・AI連携機能 ▼▼▼
+// ▼▼▼ チャット機能JS (GAS中継 & 音声入力対応版) ▼▼▼
 
 const gasUrl = "https://script.google.com/macros/s/AKfycby6THg5PeEHYWWwxFV9VvY7kJ3MAMwoEuaJNs_EK_VZWv9alxqsi25RxDQ2wikkI1-H/exec";
 let recognition;
 let isRecording = false;
+
+// 🌟 新機能：Androidアプリ連携を邪魔しない「フワッと通知（トースト）」関数
+function showToast(msg) {
+    let toast = document.getElementById('tama-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'tama-toast';
+        toast.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.85); color:#fff; padding:12px 20px; border-radius:30px; font-size:13px; z-index:999999; text-align:center; box-shadow:0 4px 15px rgba(0,0,0,0.3); transition: opacity 0.3s ease; font-weight:bold; white-space:pre-wrap; width:max-content; max-width:90%; pointer-events:none;';
+        document.body.appendChild(toast);
+    }
+    toast.innerText = msg;
+    toast.style.opacity = '1';
+    toast.style.display = 'block';
+    
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.style.display = 'none', 300);
+    }, 2500);
+}
 
 // 🪄 魔法のプロンプト生成関数
 const generateAiPrompt = (foodName) => {
     return `「${foodName}」の一般的なカロリーと、PFC（タンパク質・脂質・炭水化物）の数値を調べてください。\n\nまた、私が食事管理アプリにそのままコピペして記録できるよう、回答の最後に以下のフォーマットの〇〇に数値を埋めたテキストを【コピー用テキスト】として出力してください。\n\n${foodName}を食べたよ！カロリーは〇〇kcal、Pは〇〇g、Fは〇〇g、Cは〇〇gだって！`;
 };
 
-// 🤖 ChatGPT用 (Android安定化)
+// 🤖 ChatGPT用 (Androidアプリ連携対応・alert廃止)
 window.askChatGPT = function(foodName) {
     const text = generateAiPrompt(foodName);
     navigator.clipboard.writeText(text).then(() => {
-        window.open("https://chatgpt.com/", "_blank");
-        alert(`🤖 ChatGPT用の魔法の質問文をコピーしたたま！\n貼り付けて聞いてみてたま！`);
-    }).catch(err => { alert("コピーに失敗したたま…。"); });
+        showToast("🤖 コピー完了たま！\n開いた画面に貼り付けてたま！");
+        // aタグを擬似的にクリックさせることで、Androidのアプリ連携を最も自然に発動させます
+        const a = document.createElement('a');
+        a.href = "https://chatgpt.com/";
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }).catch(err => { showToast("コピーに失敗したたま…"); });
 };
 
-// ✨ Gemini用 (Android安定化・URL修正)
+// ✨ Gemini用 (Androidアプリ連携対応・alert廃止)
 window.askGemini = function(foodName) {
     const text = generateAiPrompt(foodName);
     navigator.clipboard.writeText(text).then(() => {
-        // window.openをalertより先に出すことで、Androidでの「勝手に閉じる」問題を回避します
-        window.open("https://gemini.google.com/", "_blank");
-        alert(`✨ Gemini用の魔法の質問文をコピーしたたま！\n貼り付けて聞いてみてたま！`);
-    }).catch(err => { alert("コピーに失敗したたま…。"); });
+        showToast("✨ コピー完了たま！\n開いた画面に貼り付けてたま！");
+        const a = document.createElement('a');
+        a.href = "https://gemini.google.com/app"; // アプリ連携が一番発動しやすい公式URL
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }).catch(err => { showToast("コピーに失敗したたま…"); });
 };
 
 // 🔍 Google検索用
 window.searchGoogle = function(foodName) {
-    window.open(`https://www.google.com/search?q=${encodeURIComponent(foodName + " カロリー PFC")}`, "_blank");
+    const a = document.createElement('a');
+    a.href = `https://www.google.com/search?q=${encodeURIComponent(foodName + " カロリー PFC")}`;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 };
 
 
@@ -837,7 +874,7 @@ ${text}
         removeMsg(loadingId);
         const newMsgId = addChatMsg('bot', botReply);
 
-        // 🌟 2段構造の美しいボタンレイアウト！ (Android安定版)
+        // 🌟 2段構造の美しいボタンレイアウト！ (Android連携対応版)
         if (unknownFood) {
             const msgEl = document.getElementById(newMsgId).querySelector('.text');
             msgEl.innerHTML += `<br><br>
