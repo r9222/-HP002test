@@ -716,7 +716,7 @@ function toggleMic() {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ▼ AIチャット送信機能 (カンペ ＋ 単位警告 ＋ 強制カロリー計算) ▼
+// ▼ AIチャット送信機能 (Gemma 3対応・検索機能なし・カロリー強制計算) ▼
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function sendTamaChat() {
     const inputEl = document.getElementById('chat-input');
@@ -755,7 +755,6 @@ async function sendTamaChat() {
             }
             
             if (isMatch) {
-                // ★追加：単位に応じた「AI向けの個別警告文」を動的に生成してくっつける
                 let unitHint = "";
                 if (x[3].includes("杯") || x[3].includes("本") || x[3].includes("缶") || x[3].includes("個") || x[3].includes("枚") || x[3].includes("皿") || x[3].includes("切") || x[3].includes("貫") || x[3].includes("食") || x[3].includes("P") || x[3].includes("玉")) {
                     unitHint = " (※注意:これは1人前の数値です。ユーザーが「500ml」「300g」等と指定した場合、1人前=約350ml/200gと考え、約1〜1.5倍程度の常識的な範囲で計算してください。絶対に5倍などの異常な掛け算をしないでください)";
@@ -782,6 +781,7 @@ async function sendTamaChat() {
         const response = await fetch(gasUrl, {
             method: "POST",
             headers: { "Content-Type": "text/plain" },
+            // ★修正ポイント：Gemma 3でエラーになる検索ツール（tools属性）を削除し、純粋なテキスト送受信のみに戻しました
             body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
         });
 
