@@ -1,4 +1,4 @@
-// app.js : アプリの脳みそ (Gemma 3 直叩き・ハイブリッド検索ボタン搭載版)
+// app.js : アプリの脳みそ (Gemma 3 直叩き・ハイブリッド検索 3ボタン＆魔法のプロンプト搭載版)
 
 // ■ グローバル変数
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std" }; 
@@ -618,15 +618,25 @@ const gasUrl = "https://script.google.com/macros/s/AKfycby6THg5PeEHYWWwxFV9VvY7k
 let recognition;
 let isRecording = false;
 
-// ★ 新機能：AIに聞くための「魔法のボタン」の動作設定
+// ★ 新機能：AIに聞くための「魔法のボタン」と「完璧なプロンプト」
+const generateAiPrompt = (foodName) => {
+    return `「${foodName}」の一般的なカロリーと、PFC（タンパク質・脂質・炭水化物）の数値を調べてください。\n\nまた、私が食事管理アプリにそのままコピペして記録できるよう、回答の最後に以下のフォーマットの〇〇に数値を埋めたテキストを【コピー用テキスト】として出力してください。\n\n${foodName}を食べたよ！カロリーは〇〇kcal、Pは〇〇g、Fは〇〇g、Cは〇〇gだって！`;
+};
+
 window.askChatGPT = function(foodName) {
-    const text = `${foodName}のカロリーと、P(タンパク質)・F(脂質)・C(炭水化物)の数値を推測して教えてください。`;
+    const text = generateAiPrompt(foodName);
     navigator.clipboard.writeText(text).then(() => {
-        alert(`「${foodName}」の質問文をコピーしたたま！\n開いた画面の下の入力欄に「貼り付け」して聞いてみてたま！`);
+        alert(`🤖 ChatGPT用の魔法の質問文をコピーしたたま！\n開いた画面の下の入力欄に「貼り付け」して聞いてみてたま！`);
         window.open("https://chatgpt.com/", "_blank");
-    }).catch(err => {
-        alert("コピーに失敗したたま…。");
-    });
+    }).catch(err => { alert("コピーに失敗したたま…。"); });
+};
+
+window.askGemini = function(foodName) {
+    const text = generateAiPrompt(foodName);
+    navigator.clipboard.writeText(text).then(() => {
+        alert(`✨ Gemini用の魔法の質問文をコピーしたたま！\n開いた画面の下の入力欄に「貼り付け」して聞いてみてたま！`);
+        window.open("https://gemini.google.com/app", "_blank");
+    }).catch(err => { alert("コピーに失敗したたま…。"); });
 };
 
 window.searchGoogle = function(foodName) {
@@ -809,7 +819,6 @@ ${text}
         rawText = rawText.replace(/\*\*/g, ""); 
         rawText = rawText.replace(/^たまちゃん:\s*/i, ""); 
         rawText = rawText.replace(/たまちゃんの返答:/g, ""); 
-        // 念のためもう一度（改行後に名乗るパターン対策）
         rawText = rawText.replace(/たまちゃん:\s*/i, ""); 
 
         let botReply = "";
@@ -844,7 +853,7 @@ ${text}
                 replaceFood = { N: d[0].trim(), P: p, F: f, C: c, Cal: trueCal };
             }
         } else if (unkIdx !== -1) {
-            // ★ [UNKNOWN] を検知した場合の処理（ボタンを出すためのフラグ）
+            // ★ [UNKNOWN] を検知した場合の処理
             botReply = rawText.substring(0, unkIdx).trim();
             unknownFood = rawText.substring(unkIdx + 9).trim();
         } else {
@@ -854,14 +863,18 @@ ${text}
         removeMsg(loadingId);
         const newMsgId = addChatMsg('bot', botReply);
 
-        // ★ 未知のメニューだった場合、JSでボタンを動的にHTMLへ追加する！
+        // ★ 変更：2段構造の美しいボタンレイアウト！
         if (unknownFood) {
             const msgEl = document.getElementById(newMsgId).querySelector('.text');
             msgEl.innerHTML += `<br><br>
                 <div style="display:flex; flex-direction:column; gap:8px; margin-top:5px;">
-                    <button onclick="askChatGPT('${unknownFood}')" style="background:#10a37f; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px; box-shadow:0 2px 4px rgba(0,0,0,0.1);">🤖 ChatGPTに聞く<br><span style="font-size:9px; font-weight:normal;">(質問をコピーして開きます)</span></button>
-                    <button onclick="searchGoogle('${unknownFood}')" style="background:#4285F4; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px; box-shadow:0 2px 4px rgba(0,0,0,0.1);">🔍 Googleで検索する</button>
-                </div>`;
+                    <div style="display:flex; gap:8px; width:100%;">
+                        <button onclick="askGemini('${unknownFood}')" style="flex:1; background:#1a73e8; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:11px; box-shadow:0 2px 4px rgba(0,0,0,0.1);">✨ Geminiに聞く</button>
+                        <button onclick="askChatGPT('${unknownFood}')" style="flex:1; background:#10a37f; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:11px; box-shadow:0 2px 4px rgba(0,0,0,0.1);">🤖 ChatGPTに聞く</button>
+                    </div>
+                    <button onclick="searchGoogle('${unknownFood}')" style="width:100%; background:#f0f2f5; color:#333; border:1px solid #ccc; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">🔍 Googleで検索する</button>
+                </div>
+                <div style="font-size:9px; color:#888; margin-top:6px; text-align:center;">※AIボタンを押すと、報告用テキストが自動でコピーされます</div>`;
         }
 
         if (autoFood) {
