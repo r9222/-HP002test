@@ -1,4 +1,4 @@
-// app.js : アプリの脳みそ (Gemma 3 直叩き・ハイブリッド検索 3ボタン＆魔法のプロンプト搭載版)
+// app.js : アプリの脳みそ (Gemma 3 直叩き・ハイブリッド検索 3ボタン＆Android安定版)
 
 // ■ グローバル変数
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std" }; 
@@ -613,32 +613,35 @@ function importData(input) {
 
 // ▼▼▼ チャット・AI連携機能 ▼▼▼
 
-// ★重要：大林さんのGASのURLをそのまま使用しています！
 const gasUrl = "https://script.google.com/macros/s/AKfycby6THg5PeEHYWWwxFV9VvY7kJ3MAMwoEuaJNs_EK_VZWv9alxqsi25RxDQ2wikkI1-H/exec";
 let recognition;
 let isRecording = false;
 
-// ★ 新機能：AIに聞くための「魔法のボタン」と「完璧なプロンプト」
+// 🪄 魔法のプロンプト生成関数
 const generateAiPrompt = (foodName) => {
     return `「${foodName}」の一般的なカロリーと、PFC（タンパク質・脂質・炭水化物）の数値を調べてください。\n\nまた、私が食事管理アプリにそのままコピペして記録できるよう、回答の最後に以下のフォーマットの〇〇に数値を埋めたテキストを【コピー用テキスト】として出力してください。\n\n${foodName}を食べたよ！カロリーは〇〇kcal、Pは〇〇g、Fは〇〇g、Cは〇〇gだって！`;
 };
 
+// 🤖 ChatGPT用 (Android安定化)
 window.askChatGPT = function(foodName) {
     const text = generateAiPrompt(foodName);
     navigator.clipboard.writeText(text).then(() => {
-        alert(`🤖 ChatGPT用の魔法の質問文をコピーしたたま！\n開いた画面の下の入力欄に「貼り付け」して聞いてみてたま！`);
         window.open("https://chatgpt.com/", "_blank");
+        alert(`🤖 ChatGPT用の魔法の質問文をコピーしたたま！\n貼り付けて聞いてみてたま！`);
     }).catch(err => { alert("コピーに失敗したたま…。"); });
 };
 
+// ✨ Gemini用 (Android安定化・URL修正)
 window.askGemini = function(foodName) {
     const text = generateAiPrompt(foodName);
     navigator.clipboard.writeText(text).then(() => {
-        alert(`✨ Gemini用の魔法の質問文をコピーしたたま！\n開いた画面の下の入力欄に「貼り付け」して聞いてみてたま！`);
-        window.open("https://gemini.google.com/app", "_blank");
+        // window.openをalertより先に出すことで、Androidでの「勝手に閉じる」問題を回避します
+        window.open("https://gemini.google.com/", "_blank");
+        alert(`✨ Gemini用の魔法の質問文をコピーしたたま！\n貼り付けて聞いてみてたま！`);
     }).catch(err => { alert("コピーに失敗したたま…。"); });
 };
 
+// 🔍 Google検索用
 window.searchGoogle = function(foodName) {
     window.open(`https://www.google.com/search?q=${encodeURIComponent(foodName + " カロリー PFC")}`, "_blank");
 };
@@ -694,9 +697,7 @@ function toggleMic() {
 
     recognition.onresult = (event) => {
         if (!isRecording) return;
-        
         inputEl.value = event.results[0][0].transcript;
-        
         isRecording = false;
         micBtn.classList.remove('recording');
         inputEl.placeholder = "例: 夜ご飯なにがいい？";
@@ -704,21 +705,9 @@ function toggleMic() {
     };
 
     recognition.onerror = (event) => {
-        if (event.error === 'aborted') {
-            isRecording = false;
-            micBtn.classList.remove('recording');
-            inputEl.placeholder = "例: 夜ご飯なにがいい？";
-            return;
-        }
-        if (event.error === 'no-speech') {
-            isRecording = false;
-            micBtn.classList.remove('recording');
-            inputEl.placeholder = "声が聞こえなかったたま。";
-            return;
-        }
         isRecording = false;
         micBtn.classList.remove('recording');
-        addChatMsg('bot', `エラー(${event.error})で止まっちゃったたま。`);
+        inputEl.placeholder = "例: 夜ご飯なにがいい？";
     };
 
     recognition.onend = () => {
@@ -726,12 +715,9 @@ function toggleMic() {
             isRecording = false;
             micBtn.classList.remove('recording');
             inputEl.placeholder = "例: 夜ご飯なにがいい？";
-            if (inputEl.value.trim() !== "") {
-                sendTamaChat();
-            }
+            if (inputEl.value.trim() !== "") { sendTamaChat(); }
         }
     };
-
     recognition.start();
 }
 
@@ -741,7 +727,6 @@ async function sendTamaChat() {
     if (!text) return;
 
     addChatMsg('user', text);
-    
     inputEl.value = '';
     inputEl.disabled = true;
 
@@ -754,32 +739,23 @@ async function sendTamaChat() {
     if (typeof DB !== 'undefined') {
         let matchedFoods = [];
         const normalizedText = toHira(text).toLowerCase();
-        
         DB.forEach(x => {
             const nameHira = toHira(x[1]).toLowerCase();
             const keys = x[2] ? x[2].split(' ') : [];
             let isMatch = false;
-            
             if (normalizedText.includes(nameHira)) isMatch = true;
             else {
                 for (let k of keys) {
                     if (!k) continue;
                     let kHira = toHira(k).toLowerCase();
-                    if (normalizedText.includes(kHira)) {
-                        isMatch = true; break;
-                    }
+                    if (normalizedText.includes(kHira)) { isMatch = true; break; }
                 }
             }
-            
             if (isMatch) {
-                let unitHint = "";
-                if (x[3].includes("杯") || x[3].includes("本") || x[3].includes("缶") || x[3].includes("個") || x[3].includes("枚") || x[3].includes("皿") || x[3].includes("切") || x[3].includes("貫") || x[3].includes("食") || x[3].includes("P") || x[3].includes("玉")) {
-                    unitHint = " (※1人前約300g基準。ユーザーが500ml等と言った場合は常識的に1.5倍等に補正せよ。絶対5倍にするな)";
-                }
+                let unitHint = " (※1人前約300g基準。ユーザーが500ml等と言った場合は常識的に1.5倍等に補正せよ。絶対5倍にするな)";
                 matchedFoods.push(`- ${x[1]}(${x[3]}あたり): P ${x[4]}g, F ${x[5]}g, C ${x[6]}g, カロリー ${x[7]}kcal ${unitHint}`);
             }
         });
-
         if (matchedFoods.length > 0) {
             cheatSheetText = `\n【カンペ(公式データ)】\n${matchedFoods.slice(0, 5).join('\n')}\n※注意：上記がある場合は絶対に推測せずこのPFC割合を守ること。\n`;
         }
@@ -815,7 +791,6 @@ ${text}
         const data = await response.json();
         let rawText = data.candidates[0].content.parts[0].text;
         
-        // 🌟 Gemma 3特有のゴミ（名乗りやマークダウン）を強制削除
         rawText = rawText.replace(/\*\*/g, ""); 
         rawText = rawText.replace(/^たまちゃん:\s*/i, ""); 
         rawText = rawText.replace(/たまちゃんの返答:/g, ""); 
@@ -853,7 +828,6 @@ ${text}
                 replaceFood = { N: d[0].trim(), P: p, F: f, C: c, Cal: trueCal };
             }
         } else if (unkIdx !== -1) {
-            // ★ [UNKNOWN] を検知した場合の処理
             botReply = rawText.substring(0, unkIdx).trim();
             unknownFood = rawText.substring(unkIdx + 9).trim();
         } else {
@@ -863,7 +837,7 @@ ${text}
         removeMsg(loadingId);
         const newMsgId = addChatMsg('bot', botReply);
 
-        // ★ 変更：2段構造の美しいボタンレイアウト！
+        // 🌟 2段構造の美しいボタンレイアウト！ (Android安定版)
         if (unknownFood) {
             const msgEl = document.getElementById(newMsgId).querySelector('.text');
             msgEl.innerHTML += `<br><br>
@@ -874,7 +848,7 @@ ${text}
                     </div>
                     <button onclick="searchGoogle('${unknownFood}')" style="width:100%; background:#f0f2f5; color:#333; border:1px solid #ccc; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">🔍 Googleで検索する</button>
                 </div>
-                <div style="font-size:9px; color:#888; margin-top:6px; text-align:center;">※AIボタンを押すと、報告用テキストが自動でコピーされます</div>`;
+                <div style="font-size:9px; color:#888; margin-top:6px; text-align:center;">※AIボタンを押すと、報告用プロンプトが自動コピーされます</div>`;
         }
 
         if (autoFood) {
@@ -890,17 +864,13 @@ ${text}
             localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
-
         chatHistory.push({ role: 'model', text: botReply });
         if (chatHistory.length > 6) chatHistory.shift();
-
     } catch (error) {
-        console.error(error);
         removeMsg(loadingId);
         addChatMsg('bot', '通信エラーだたま...。もう一度送ってたま！');
     } finally {
-        inputEl.value = '';
-        inputEl.disabled = false;
+        inputEl.value = ''; inputEl.disabled = false;
     }
 }
 
@@ -908,49 +878,24 @@ function addChatMsg(role, text) {
     const box = document.getElementById('chat-messages');
     const id = 'msg-' + Date.now();
     const div = document.createElement('div');
-    div.className = `msg ${role}`;
-    div.id = id;
-    
+    div.className = `msg ${role}`; div.id = id;
     const iconDiv = document.createElement('div');
-    iconDiv.className = 'icon';
-    iconDiv.innerHTML = '<img src="new_tama.png">';
-    
+    iconDiv.className = 'icon'; iconDiv.innerHTML = '<img src="new_tama.png">';
     const textDiv = document.createElement('div');
-    textDiv.className = 'text';
-    textDiv.innerText = text;
-
-    if(role === 'bot') {
-        div.appendChild(iconDiv);
-        div.appendChild(textDiv);
-    } else {
-        div.appendChild(textDiv);
-        div.appendChild(iconDiv);
-    }
-
-    box.appendChild(div);
-    box.scrollTop = box.scrollHeight;
+    textDiv.className = 'text'; textDiv.innerText = text;
+    if(role === 'bot') { div.appendChild(iconDiv); div.appendChild(textDiv); } 
+    else { div.appendChild(textDiv); div.appendChild(iconDiv); }
+    box.appendChild(div); box.scrollTop = box.scrollHeight;
     return id;
 }
 
-function removeMsg(id) {
-    const el = document.getElementById(id);
-    if(el) el.remove();
-}
+function removeMsg(id) { const el = document.getElementById(id); if(el) el.remove(); }
 
 function getAppContextStr() {
     let t = { Cal: 0, P: 0, F: 0, C: 0 };
     lst.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; });
     const remCal = TG.cal - t.Cal;
-    const remF = TG.f - t.F;
-
-    return `
-    - 目標カロリー: ${TG.cal}kcal (モード: ${TG.label})
-    - 現在の摂取: ${t.Cal}kcal (残り ${remCal}kcal)
-    - P(タンパク質): ${t.P.toFixed(1)}g / 目標 ${TG.p}g
-    - F(脂質): ${t.F.toFixed(1)}g / 目標 ${TG.f}g (残り ${remF.toFixed(1)}g)
-    - C(炭水化物): ${t.C.toFixed(1)}g / 目標 ${TG.c}g
-    - 今日食べたものリスト: ${lst.map(x => x.N).join(', ') || 'まだ何も食べてない'}
-    `;
+    return `現在の摂取: ${t.Cal}kcal (残り ${remCal}kcal)\n今日食べたもの: ${lst.map(x => x.N).join(', ') || 'なし'}`;
 }
 
 // ▲▲▲ チャット機能JS ここまで ▲▲▲
