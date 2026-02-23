@@ -217,7 +217,7 @@ function ren() {
     lst.forEach((x, i) => {
         const li = document.createElement('li'); li.className = 'f-item';
         li.innerHTML = `
-            <div><strong>${x.N}</strong> <small>${x.U}</small>
+            <div><strong>${x.N}</strong> <small>${x.U}</small><br>
             <span style="font-size:12px;color:#666">${x.Cal}kcal (P${x.P.toFixed(1)} F${x.F.toFixed(1)} C${x.C.toFixed(1)})</span></div>
             <div class="act-btns">
                 <button class="l-btn b-re" onclick="reAdd(${i})">複製</button>
@@ -312,7 +312,9 @@ function delHist(i) { if (!confirm("削除しますか？")) return; hist.splice
 
 function togFav(i, el) { const x = fav.indexOf(i); if (x >= 0) fav.splice(x, 1); else fav.push(i); localStorage.setItem('tf_fav', JSON.stringify(fav)); el.classList.toggle('act'); }
 
-// ★ スマート検索機能
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ▼ 魔法の検索機能 (カタカナひらがな対応・部分一致スコア制) ▼
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function filterF() {
     const rawV = document.getElementById('s-inp').value.trim();
     const r = document.getElementById('s-res');
@@ -321,13 +323,11 @@ function filterF() {
 
     const query = toHira(rawV).toLowerCase();
     const isPartialAllowed = query.length >= 2;
-
     let results = [];
 
     DB.forEach((x, i) => {
         const name = toHira(x[1]).toLowerCase();
         const keys = x[2] ? toHira(x[2]).toLowerCase() : "";
-
         let score = 0;
 
         if (name === query || keys.split(' ').includes(query)) {
@@ -620,8 +620,6 @@ function importData(input) {
 const gasUrl = "https://script.google.com/macros/s/AKfycby6THg5PeEHYWWwxFV9VvY7kJ3MAMwoEuaJNs_EK_VZWv9alxqsi25RxDQ2wikkI1-H/exec";
 let recognition;
 let isRecording = false;
-let finalTranscript = ''; 
-let speechTimeout = null;
 
 function toggleChat() {
     const win = document.getElementById('tama-chat-window');
@@ -641,7 +639,9 @@ function setupChatEnterKey() {
     input.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) sendTamaChat(); });
 }
 
-// ★ 音声入力（ダブり防止・爆速送信版）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ▼ マイク機能 (Androidバグ完全回避・高速版) ▼
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
     const inputEl = document.getElementById('chat-input');
@@ -674,6 +674,7 @@ function toggleMic() {
 
     recognition.onresult = (event) => {
         if (!isRecording) return;
+        
         inputEl.value = event.results[0][0].transcript;
         
         isRecording = false;
@@ -714,13 +715,16 @@ function toggleMic() {
     recognition.start();
 }
 
-// ★ チャット送信処理（カンペ機能・カロリー再計算搭載）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ▼ AIチャット送信機能 (カンペ ＋ 強制カロリー計算) ▼
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function sendTamaChat() {
     const inputEl = document.getElementById('chat-input');
     const text = inputEl.value.trim();
     if (!text) return;
 
     addChatMsg('user', text);
+    
     inputEl.value = '';
     inputEl.disabled = true;
 
@@ -751,13 +755,16 @@ async function sendTamaChat() {
             }
             
             if (isMatch) {
-                // カンペの順番をP,F,C,カロリーに固定
                 matchedFoods.push(`- ${x[1]}(${x[3]}あたり): P ${x[4]}g, F ${x[5]}g, C ${x[6]}g, カロリー ${x[7]}kcal`);
             }
         });
 
         if (matchedFoods.length > 0) {
-            cheatSheetText = `\n【システムカンペ: 公式データ】\n${matchedFoods.slice(0, 5).join('\n')}\n※重要: 食材を登録する際は、必ず [DATA]食材名,Pの数値,Fの数値,Cの数値,カロリー の順番を守って出力すること！\n`;
+            cheatSheetText = `\n【システムカンペ: 公式データ】\n${matchedFoods.slice(0, 5).join('\n')}\n
+※重要ルール※
+1. 出力は必ず [DATA]食材名,Pの数値,Fの数値,Cの数値,カロリー の順番を厳守！
+2. カンペの単位（1杯、1個など）とユーザーの入力（ml、gなど）が異なる場合、勝手に「1杯=100ml」などと決めつけて5倍や10倍にするような異常な掛け算は絶対にしないこと。
+3. 「500mlの飲み物」であれば常識的に考えて「1〜1.5倍程度」など、現実的な倍率で計算すること。\n`;
         }
     }
 
@@ -781,7 +788,6 @@ async function sendTamaChat() {
             botReply = parts[0].replace(/たまちゃんの返答:/g, "").trim();
             const d = parts[1].split(",");
             if (d.length >= 5) {
-                // PFCを取得してカロリーを強制再計算
                 let p = parseFloat(d[1]) || 0;
                 let f = parseFloat(d[2]) || 0;
                 let c = parseFloat(d[3]) || 0;
@@ -793,7 +799,6 @@ async function sendTamaChat() {
             botReply = parts[0].replace(/たまちゃんの返答:/g, "").trim();
             const d = parts[1].split(",");
             if (d.length >= 5) {
-                // こっちも強制再計算
                 let p = parseFloat(d[1]) || 0;
                 let f = parseFloat(d[2]) || 0;
                 let c = parseFloat(d[3]) || 0;
@@ -814,9 +819,7 @@ async function sendTamaChat() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } 
         else if (replaceFood) {
-            if (lst.length > 0) {
-                lst.pop(); 
-            }
+            if (lst.length > 0) lst.pop(); 
             if (replaceFood.Cal > 0 || replaceFood.P > 0 || replaceFood.F > 0 || replaceFood.C > 0) {
                 lst.push({ N: "🤖 " + replaceFood.N, P: replaceFood.P, F: replaceFood.F, C: replaceFood.C, Cal: replaceFood.Cal, U: "AI修正" });
             }
@@ -884,3 +887,5 @@ function getAppContextStr() {
     - 今日食べたものリスト: ${lst.map(x => x.N).join(', ') || 'まだ何も食べてない'}
     `;
 }
+
+// ▲▲▲ チャット機能JS ここまで ▲▲▲
