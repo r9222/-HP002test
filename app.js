@@ -217,7 +217,7 @@ function ren() {
     lst.forEach((x, i) => {
         const li = document.createElement('li'); li.className = 'f-item';
         li.innerHTML = `
-            <div><strong>${x.N}</strong> <small>${x.U}</small><br>
+            <div><strong>${x.N}</strong> <small>${x.U}</small>
             <span style="font-size:12px;color:#666">${x.Cal}kcal (P${x.P.toFixed(1)} F${x.F.toFixed(1)} C${x.C.toFixed(1)})</span></div>
             <div class="act-btns">
                 <button class="l-btn b-re" onclick="reAdd(${i})">複製</button>
@@ -312,43 +312,34 @@ function delHist(i) { if (!confirm("削除しますか？")) return; hist.splice
 
 function togFav(i, el) { const x = fav.indexOf(i); if (x >= 0) fav.splice(x, 1); else fav.push(i); localStorage.setItem('tf_fav', JSON.stringify(fav)); el.classList.toggle('act'); }
 
-// ▼▼ app.js の filterF() 関数をこれで上書きしてください ▼▼
-
+// ★ スマート検索機能
 function filterF() {
     const rawV = document.getElementById('s-inp').value.trim();
     const r = document.getElementById('s-res');
     r.innerHTML = "";
     if (!rawV) { r.style.display = 'none'; return; }
 
-    // 魔法1：入力されたカタカナを自動的に「ひらがな」に変換
     const query = toHira(rawV).toLowerCase();
-    
-    // 魔法2：2文字以上入力されたら「部分一致（途中から一致）」を解禁する
     const isPartialAllowed = query.length >= 2;
 
     let results = [];
 
     DB.forEach((x, i) => {
-        // 検索対象の「名前」と「キーワード（ひらがな変換済）」
         const name = toHira(x[1]).toLowerCase();
         const keys = x[2] ? toHira(x[2]).toLowerCase() : "";
 
         let score = 0;
 
-        // 【1000点】完全一致（例：「白米」と打って「白米」が出た）
         if (name === query || keys.split(' ').includes(query)) {
             score = 1000;
         }
-        // 【500点】前方一致（例：「とり」と打って「とりむね」が出た）
         else if (name.startsWith(query) || keys.split(' ').some(k => k.startsWith(query))) {
             score = 500;
         }
-        // 【100点】部分一致（例：「むね」と打って「とりむね」が出た）※2文字以上の時だけ発動
         else if (isPartialAllowed && (name.includes(query) || keys.includes(query))) {
             score = 100;
         }
 
-        // 点数が1点以上ならリストの候補に入れる
         if (score > 0) {
             results.push({ item: x, index: i, score: score });
         }
@@ -359,10 +350,8 @@ function filterF() {
         return;
     }
 
-    // 魔法3：点数が高い順（1000点→500点→100点）に並び替える
     results.sort((a, b) => b.score - a.score);
 
-    // 並び替えた結果を画面に表示する
     r.style.display = 'block';
     results.forEach(res => {
         const d = document.createElement('div');
@@ -372,8 +361,6 @@ function filterF() {
         r.appendChild(d);
     });
 }
-
-// ▲▲ ここまで ▲▲
 
 function mkTgt() {
     const b = document.getElementById('tgt-btns'); b.innerHTML = "";
@@ -654,13 +641,11 @@ function setupChatEnterKey() {
     input.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) sendTamaChat(); });
 }
 
-// ▼▼ app.js の toggleMic() 関数をこれで上書きしてください ▼▼
-
+// ★ 音声入力（ダブり防止・爆速送信版）
 function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
     const inputEl = document.getElementById('chat-input');
 
-    // マイク録音中にボタンを押したらキャンセルする処理
     if (isRecording) {
         isRecording = false;
         micBtn.classList.remove('recording');
@@ -677,7 +662,6 @@ function toggleMic() {
 
     recognition = new SpeechRecognition();
     recognition.lang = 'ja-JP';
-    // ★ 魔法の設定：Androidのバグを封じるため「途中経過」を完全にオフにする！
     recognition.continuous = false; 
     recognition.interimResults = false; 
 
@@ -685,17 +669,13 @@ function toggleMic() {
         isRecording = true;
         micBtn.classList.add('recording');
         inputEl.placeholder = "たまちゃん聞いてるたま！喋って！";
-        inputEl.value = ''; // 入力欄を綺麗にする
+        inputEl.value = ''; 
     };
 
-    // ★ 喋り終わった瞬間に「1回だけ」呼ばれる（絶対にダブらない）
     recognition.onresult = (event) => {
         if (!isRecording) return;
-        
-        // 最終結果の1行だけをスポッと入れる
         inputEl.value = event.results[0][0].transcript;
         
-        // 入力されたら「タイマーを待たずに」即座に送信！
         isRecording = false;
         micBtn.classList.remove('recording');
         inputEl.placeholder = "例: 夜ご飯なにがいい？";
@@ -721,7 +701,6 @@ function toggleMic() {
     };
 
     recognition.onend = () => {
-        // 万が一、送信されずにマイクが切れた場合の保険
         if (isRecording) {
             isRecording = false;
             micBtn.classList.remove('recording');
@@ -735,15 +714,13 @@ function toggleMic() {
     recognition.start();
 }
 
-// ▲▲ ここまで ▲▲
+// ★ チャット送信処理（カンペ機能・カロリー再計算搭載）
 async function sendTamaChat() {
     const inputEl = document.getElementById('chat-input');
     const text = inputEl.value.trim();
     if (!text) return;
 
     addChatMsg('user', text);
-    
-    // ★ 送信開始時に一回白紙にする
     inputEl.value = '';
     inputEl.disabled = true;
 
@@ -752,7 +729,6 @@ async function sendTamaChat() {
     const context = `現在の摂取: ${lst.reduce((a,b)=>a+b.Cal,0)}kcal\n今日食べたものリスト: ${lst.map(x => x.N).join(', ') || 'まだなし'}`;
     let historyText = chatHistory.map(m => `${m.role === 'user' ? 'あなた' : 'たまちゃん'}: ${m.text}`).join('\n');
     
-    // ━━━━━ 🌟 魔法のカンペ機能（ここから追加） ━━━━━
     let cheatSheetText = "";
     if (typeof DB !== 'undefined') {
         let matchedFoods = [];
@@ -763,7 +739,6 @@ async function sendTamaChat() {
             const keys = x[2] ? x[2].split(' ') : [];
             let isMatch = false;
             
-            // ユーザーの発言に、データベースの名前やキーワードが含まれているかチェック
             if (normalizedText.includes(nameHira)) isMatch = true;
             else {
                 for (let k of keys) {
@@ -775,18 +750,16 @@ async function sendTamaChat() {
                 }
             }
             
-            // 一致したらカンペリストに追加
             if (isMatch) {
-                matchedFoods.push(`- ${x[1]}(${x[3]}あたり): ${x[7]}kcal P${x[4]} F${x[5]} C${x[6]}`);
+                // カンペの順番をP,F,C,カロリーに固定
+                matchedFoods.push(`- ${x[1]}(${x[3]}あたり): P ${x[4]}g, F ${x[5]}g, C ${x[6]}g, カロリー ${x[7]}kcal`);
             }
         });
 
-        // 候補が見つかったら、最大5件までをカンペとしてAIに渡す
         if (matchedFoods.length > 0) {
-            cheatSheetText = `\n【システムからのカンペ: アプリ内データベースの公式数値】\n${matchedFoods.slice(0, 5).join('\n')}\n※上記の食材を登録する場合は、推測せずこの公式数値を基準に計算してね！\n`;
+            cheatSheetText = `\n【システムカンペ: 公式データ】\n${matchedFoods.slice(0, 5).join('\n')}\n※重要: 食材を登録する際は、必ず [DATA]食材名,Pの数値,Fの数値,Cの数値,カロリー の順番を守って出力すること！\n`;
         }
     }
-    // ━━━━━ 🌟 魔法のカンペ機能（ここまで追加） ━━━━━
 
     const prompt = `${typeof SYSTEM_PROMPT !== 'undefined' ? SYSTEM_PROMPT : 'たまちゃんです。'}\n\n【状況】\n${context}\n\n【直近の会話履歴】\n${historyText}\n${cheatSheetText}\n【ユーザーの最新の発言】\n${text}`;
 
@@ -803,17 +776,15 @@ async function sendTamaChat() {
         let autoFood = null;
         let replaceFood = null;
 
-       // ▼▼ ここから差し替え ▼▼
         if (rawText.includes("[DATA]")) {
             const parts = rawText.split("[DATA]");
             botReply = parts[0].replace(/たまちゃんの返答:/g, "").trim();
             const d = parts[1].split(",");
             if (d.length >= 5) {
-                // AIの出したPFCを変数に入れる
+                // PFCを取得してカロリーを強制再計算
                 let p = parseFloat(d[1]) || 0;
                 let f = parseFloat(d[2]) || 0;
                 let c = parseFloat(d[3]) || 0;
-                // アプリ側で正確なカロリーを強制計算する！
                 let trueCal = Math.round(p * 4 + f * 9 + c * 4);
                 autoFood = { N: d[0].trim(), P: p, F: f, C: c, Cal: trueCal };
             }
@@ -822,7 +793,7 @@ async function sendTamaChat() {
             botReply = parts[0].replace(/たまちゃんの返答:/g, "").trim();
             const d = parts[1].split(",");
             if (d.length >= 5) {
-                // こっちも同じく強制計算！
+                // こっちも強制再計算
                 let p = parseFloat(d[1]) || 0;
                 let f = parseFloat(d[2]) || 0;
                 let c = parseFloat(d[3]) || 0;
@@ -832,7 +803,6 @@ async function sendTamaChat() {
         } else {
             botReply = rawText.replace(/たまちゃんの返答:/g, "").trim();
         }
-        // ▲▲ ここまで差し替え ▲▲
 
         removeMsg(loadingId);
         botReply = botReply.replace(/\*/g, "");
@@ -861,7 +831,6 @@ async function sendTamaChat() {
         removeMsg(loadingId);
         addChatMsg('bot', '通信エラーだたま...。もう一度送ってたま！');
     } finally {
-        // ★ 念押しの白紙化（すべてが終わった後にもう一度綺麗にする）
         inputEl.value = '';
         inputEl.disabled = false;
     }
@@ -915,6 +884,3 @@ function getAppContextStr() {
     - 今日食べたものリスト: ${lst.map(x => x.N).join(', ') || 'まだ何も食べてない'}
     `;
 }
-
-// ▲▲▲ チャット機能JS ここまで ▲▲▲
-
