@@ -1,4 +1,4 @@
-// app.js : アプリの脳みそ (Gemma 3 直叩き・ChatGPT一本化＆二重起動防止版)
+// app.js : アプリの脳みそ (Gemma 3 直叩き・ChatGPT横並びスタイリッシュ版)
 
 // ■ グローバル変数
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std" }; 
@@ -611,13 +611,13 @@ function importData(input) {
     reader.readAsText(file);
 }
 
-// ▼▼▼ チャット・AI連携機能 (二重起動防止版) ▼▼▼
+// ▼▼▼ チャット・AI連携機能 ▼▼▼
 
 const gasUrl = "https://script.google.com/macros/s/AKfycby6THg5PeEHYWWwxFV9VvY7kJ3MAMwoEuaJNs_EK_VZWv9alxqsi25RxDQ2wikkI1-H/exec";
 let recognition;
 let isRecording = false;
 
-// 🌟 トースト通知
+// 🌟 トースト通知 (ポップアップメッセージ)
 function showToast(msg) {
     let toast = document.getElementById('tama-toast');
     if (!toast) {
@@ -633,7 +633,7 @@ function showToast(msg) {
     setTimeout(() => {
         toast.style.opacity = '0';
         setTimeout(() => toast.style.display = 'none', 300);
-    }, 2500);
+    }, 3000);
 }
 
 // 🪄 魔法のプロンプト生成関数
@@ -641,8 +641,8 @@ const generateAiPrompt = (foodName) => {
     return `「${foodName}」の一般的なカロリーと、PFC（タンパク質・脂質・炭水化物）の数値を調べてください。\n\nまた、私が食事管理アプリにそのままコピペして記録できるよう、回答の最後に以下のフォーマットの〇〇に数値を埋めたテキストを【コピー用テキスト】として出力してください。\n\n${foodName}を食べたよ！カロリーは〇〇kcal、Pは〇〇g、Fは〇〇g、Cは〇〇gだって！`;
 };
 
-// 🤖 ChatGPT専用ジャンプ (二重起動を防ぐため _blank を廃止し同一タブ遷移に変更)
-window.askChatGPT = function(foodName) {
+// 🚀 リンククリック時に発動するコピー関数
+window.copyPromptForAI = function(foodName) {
     const text = generateAiPrompt(foodName);
     
     const textArea = document.createElement("textarea");
@@ -656,17 +656,8 @@ window.askChatGPT = function(foodName) {
         navigator.clipboard.writeText(text).catch(()=>{});
     }
 
-    showToast("🤖 質問文をコピーしたたま！");
-    
-    // アプリがあればアプリが開き、なければ現在のタブがChatGPTに切り替わります（戻るボタンで戻れます）
-    window.location.href = "https://chatgpt.com/";
+    showToast("🤖 質問文をコピーしたたま！\nそのまま貼り付けて聞いてね！");
 };
-
-// 🔍 Google検索用
-window.searchGoogle = function(foodName) {
-    window.open(`https://www.google.com/search?q=${encodeURIComponent(foodName + " カロリー PFC")}`, "_blank");
-};
-
 
 function toggleChat() {
     const win = document.getElementById('tama-chat-window');
@@ -858,16 +849,19 @@ ${text}
         removeMsg(loadingId);
         const newMsgId = addChatMsg('bot', botReply);
 
-        // 🌟 シンプルな1行デザインに修正＆注釈をボタン外に分離
+        // 🌟 シンプルで美しい横並びデザイン (2重起動を防ぐ純粋なaタグ仕様)
         if (unknownFood) {
             const msgEl = document.getElementById(newMsgId).querySelector('.text');
             msgEl.innerHTML += `<br><br>
-                <div style="display:flex; flex-direction:column; gap:8px; margin-top:5px;">
-                    <div style="text-align:center;">
-                        <button onclick="askChatGPT('${unknownFood}')" style="width:100%; background:#10a37f; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px; box-shadow:0 2px 4px rgba(0,0,0,0.1);">🤖 ChatGPTに聞く</button>
-                        <div style="font-size:9px; color:#888; margin-top:4px;">※質問文が自動でコピーされます</div>
-                    </div>
-                    <button onclick="searchGoogle('${unknownFood}')" style="width:100%; background:#f0f2f5; color:#333; border:1px solid #ccc; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">🔍 自分でGoogle検索する</button>
+                <div style="display:flex; gap:8px; width:100%; margin-top:5px;">
+                    <a href="https://chatgpt.com/" target="_blank" onclick="copyPromptForAI('${unknownFood}')" style="flex:1; background:#10a37f; color:white; padding:12px 5px; border-radius:8px; font-weight:bold; font-size:12px; text-decoration:none; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.1); display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.3; box-sizing:border-box;">
+                        <span>🤖 ChatGPT</span>
+                        <span style="font-size:9px; font-weight:normal; margin-top:2px;">(自動コピー)</span>
+                    </a>
+                    <a href="https://www.google.com/search?q=${encodeURIComponent(unknownFood + ' カロリー PFC')}" target="_blank" style="flex:1; background:#f0f2f5; color:#333; border:1px solid #ccc; padding:12px 5px; border-radius:8px; font-weight:bold; font-size:12px; text-decoration:none; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.05); display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.3; box-sizing:border-box;">
+                        <span>🔍 Google検索</span>
+                        <span style="font-size:9px; font-weight:normal; margin-top:2px; color:#666;">(自分で調べる)</span>
+                    </a>
                 </div>`;
         }
 
