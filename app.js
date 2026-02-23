@@ -1,4 +1,4 @@
-// app.js : アプリの脳みそ (全機能統合・完全版)
+// app.js : アプリの脳みそ (Gemma 3 直叩き・ハイブリッド検索ボタン搭載版)
 
 // ■ グローバル変数
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std" }; 
@@ -29,7 +29,6 @@ window.onload = () => {
     const savedData = localStorage.getItem('tf_dat');
     if (savedData) lst = JSON.parse(savedData);
     
-    // 日付設定
     const d = new Date();
     const today = `${d.getFullYear()}-${("0"+(d.getMonth()+1)).slice(-2)}-${("0"+d.getDate()).slice(-2)}`;
     if(document.getElementById('b-date')) document.getElementById('b-date').value = today;
@@ -312,9 +311,6 @@ function delHist(i) { if (!confirm("削除しますか？")) return; hist.splice
 
 function togFav(i, el) { const x = fav.indexOf(i); if (x >= 0) fav.splice(x, 1); else fav.push(i); localStorage.setItem('tf_fav', JSON.stringify(fav)); el.classList.toggle('act'); }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ▼ 魔法の検索機能 (カタカナひらがな対応・部分一致スコア制) ▼
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function filterF() {
     const rawV = document.getElementById('s-inp').value.trim();
     const r = document.getElementById('s-res');
@@ -615,11 +611,28 @@ function importData(input) {
     reader.readAsText(file);
 }
 
-// ▼▼▼ チャット機能JS (GAS中継 & 音声入力対応版) ▼▼▼
+// ▼▼▼ チャット・AI連携機能 ▼▼▼
 
+// ★重要：大林さんのGASのURLをそのまま使用しています！
 const gasUrl = "https://script.google.com/macros/s/AKfycby6THg5PeEHYWWwxFV9VvY7kJ3MAMwoEuaJNs_EK_VZWv9alxqsi25RxDQ2wikkI1-H/exec";
 let recognition;
 let isRecording = false;
+
+// ★ 新機能：AIに聞くための「魔法のボタン」の動作設定
+window.askChatGPT = function(foodName) {
+    const text = `${foodName}のカロリーと、P(タンパク質)・F(脂質)・C(炭水化物)の数値を推測して教えてください。`;
+    navigator.clipboard.writeText(text).then(() => {
+        alert(`「${foodName}」の質問文をコピーしたたま！\n開いた画面の下の入力欄に「貼り付け」して聞いてみてたま！`);
+        window.open("https://chatgpt.com/", "_blank");
+    }).catch(err => {
+        alert("コピーに失敗したたま…。");
+    });
+};
+
+window.searchGoogle = function(foodName) {
+    window.open(`https://www.google.com/search?q=${encodeURIComponent(foodName + " カロリー PFC")}`, "_blank");
+};
+
 
 function toggleChat() {
     const win = document.getElementById('tama-chat-window');
@@ -639,9 +652,6 @@ function setupChatEnterKey() {
     input.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) sendTamaChat(); });
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ▼ マイク機能 (Androidバグ完全回避・高速版) ▼
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
     const inputEl = document.getElementById('chat-input');
@@ -715,9 +725,6 @@ function toggleMic() {
     recognition.start();
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ▼ AIチャット送信機能 (Gemma 3対応・検索機能なし・カロリー強制計算) ▼
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function sendTamaChat() {
     const inputEl = document.getElementById('chat-input');
     const text = inputEl.value.trim();
@@ -757,69 +764,105 @@ async function sendTamaChat() {
             if (isMatch) {
                 let unitHint = "";
                 if (x[3].includes("杯") || x[3].includes("本") || x[3].includes("缶") || x[3].includes("個") || x[3].includes("枚") || x[3].includes("皿") || x[3].includes("切") || x[3].includes("貫") || x[3].includes("食") || x[3].includes("P") || x[3].includes("玉")) {
-                    unitHint = " (※注意:これは1人前の数値です。ユーザーが「500ml」「300g」等と指定した場合、1人前=約350ml/200gと考え、約1〜1.5倍程度の常識的な範囲で計算してください。絶対に5倍などの異常な掛け算をしないでください)";
-                } else if (x[3].includes("100g") || x[3].includes("10g")) {
-                    unitHint = " (※注意:これはグラム基準の数値です。指定されたグラム数に合わせて正確に掛け算してください)";
+                    unitHint = " (※1人前約300g基準。ユーザーが500ml等と言った場合は常識的に1.5倍等に補正せよ。絶対5倍にするな)";
                 }
-                
                 matchedFoods.push(`- ${x[1]}(${x[3]}あたり): P ${x[4]}g, F ${x[5]}g, C ${x[6]}g, カロリー ${x[7]}kcal ${unitHint}`);
             }
         });
 
         if (matchedFoods.length > 0) {
-            cheatSheetText = `\n【システムカンペ: 公式データ (最優先で使用すること)】\n${matchedFoods.slice(0, 5).join('\n')}\n
-【🚨AIへの絶対命令: 計算バグ防止ルール🚨】
-1. 出力形式: 必ず [DATA]食材名,Pの数値,Fの数値,Cの数値,カロリー の順番でカンマ区切りで出力すること。
-2. 常識的な量への補正: カンペにある食材の場合、絶対に上記で指示された倍率ルールを守ること。「1杯」のデータに対して「500ml」と言われただけで単純に5倍にするような、機械的で非常識な計算は固く禁じます。
-3. 推測の排除: カンペにある食材は、PFCの割合を勝手に変えず、カンペの数値をベースに計算してください。\n`;
+            cheatSheetText = `\n【カンペ(公式データ)】\n${matchedFoods.slice(0, 5).join('\n')}\n※注意：上記がある場合は絶対に推測せずこのPFC割合を守ること。\n`;
         }
     }
 
-    const prompt = `${typeof SYSTEM_PROMPT !== 'undefined' ? SYSTEM_PROMPT : 'たまちゃんです。'}\n\n【状況】\n${context}\n\n【直近の会話履歴】\n${historyText}\n${cheatSheetText}\n【ユーザーの最新の発言】\n${text}`;
+    const prompt = `
+${typeof SYSTEM_PROMPT !== 'undefined' ? SYSTEM_PROMPT : 'あなたは「たまちゃん」です。'}
+
+=== 現在の状況 ===
+${context}
+
+=== 会話履歴 ===
+${historyText}
+${cheatSheetText}
+
+=== ユーザーの発言 ===
+${text}
+
+【最終確認・絶対ルール】
+1. 必ず「たまちゃん」として、語尾に「たま」をつけて返答してください。
+2. 返答の先頭に「たまちゃん:」という署名や、文字を太くするマークダウン（**）は絶対に使わないでください。
+3. 食材を記録・修正する場合は、文章の最後に [DATA] または [REPLACE] タグを使用し、「名前,P,F,C,カロリー」のカンマ区切り（数字のみ）を出力してください。
+4. 正確な数値がわからないチェーン店や市販品の場合は、絶対に推測せず、文章の最後に [UNKNOWN] タグを使用し、「[UNKNOWN] メニュー名」を出力してください。
+`;
 
     try {
         const response = await fetch(gasUrl, {
             method: "POST",
             headers: { "Content-Type": "text/plain" },
-            // ★修正ポイント：Gemma 3でエラーになる検索ツール（tools属性）を削除し、純粋なテキスト送受信のみに戻しました
             body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
         });
 
         const data = await response.json();
         let rawText = data.candidates[0].content.parts[0].text;
+        
+        // 🌟 Gemma 3特有のゴミ（名乗りやマークダウン）を強制削除
+        rawText = rawText.replace(/\*\*/g, ""); 
+        rawText = rawText.replace(/^たまちゃん:\s*/i, ""); 
+        rawText = rawText.replace(/たまちゃんの返答:/g, ""); 
+        // 念のためもう一度（改行後に名乗るパターン対策）
+        rawText = rawText.replace(/たまちゃん:\s*/i, ""); 
+
         let botReply = "";
         let autoFood = null;
         let replaceFood = null;
+        let unknownFood = null; 
 
-        if (rawText.includes("[DATA]")) {
-            const parts = rawText.split("[DATA]");
-            botReply = parts[0].replace(/たまちゃんの返答:/g, "").trim();
-            const d = parts[1].split(",");
+        const dataIdx = rawText.indexOf("[DATA]");
+        const repIdx = rawText.indexOf("[REPLACE]");
+        const unkIdx = rawText.indexOf("[UNKNOWN]");
+
+        if (dataIdx !== -1) {
+            botReply = rawText.substring(0, dataIdx).trim();
+            let dStr = rawText.substring(dataIdx + 6).trim();
+            let d = dStr.split(/,|、/); 
             if (d.length >= 5) {
-                let p = parseFloat(d[1]) || 0;
-                let f = parseFloat(d[2]) || 0;
-                let c = parseFloat(d[3]) || 0;
-                let trueCal = Math.round(p * 4 + f * 9 + c * 4);
+                let p = parseFloat(d[1].replace(/[^\d.]/g, "")) || 0;
+                let f = parseFloat(d[2].replace(/[^\d.]/g, "")) || 0;
+                let c = parseFloat(d[3].replace(/[^\d.]/g, "")) || 0;
+                let trueCal = Math.round(p * 4 + f * 9 + c * 4); 
                 autoFood = { N: d[0].trim(), P: p, F: f, C: c, Cal: trueCal };
             }
-        } else if (rawText.includes("[REPLACE]")) {
-            const parts = rawText.split("[REPLACE]");
-            botReply = parts[0].replace(/たまちゃんの返答:/g, "").trim();
-            const d = parts[1].split(",");
+        } else if (repIdx !== -1) {
+            botReply = rawText.substring(0, repIdx).trim();
+            let dStr = rawText.substring(repIdx + 9).trim();
+            let d = dStr.split(/,|、/);
             if (d.length >= 5) {
-                let p = parseFloat(d[1]) || 0;
-                let f = parseFloat(d[2]) || 0;
-                let c = parseFloat(d[3]) || 0;
+                let p = parseFloat(d[1].replace(/[^\d.]/g, "")) || 0;
+                let f = parseFloat(d[2].replace(/[^\d.]/g, "")) || 0;
+                let c = parseFloat(d[3].replace(/[^\d.]/g, "")) || 0;
                 let trueCal = Math.round(p * 4 + f * 9 + c * 4);
                 replaceFood = { N: d[0].trim(), P: p, F: f, C: c, Cal: trueCal };
             }
+        } else if (unkIdx !== -1) {
+            // ★ [UNKNOWN] を検知した場合の処理（ボタンを出すためのフラグ）
+            botReply = rawText.substring(0, unkIdx).trim();
+            unknownFood = rawText.substring(unkIdx + 9).trim();
         } else {
-            botReply = rawText.replace(/たまちゃんの返答:/g, "").trim();
+            botReply = rawText.trim();
         }
 
         removeMsg(loadingId);
-        botReply = botReply.replace(/\*/g, "");
-        addChatMsg('bot', botReply);
+        const newMsgId = addChatMsg('bot', botReply);
+
+        // ★ 未知のメニューだった場合、JSでボタンを動的にHTMLへ追加する！
+        if (unknownFood) {
+            const msgEl = document.getElementById(newMsgId).querySelector('.text');
+            msgEl.innerHTML += `<br><br>
+                <div style="display:flex; flex-direction:column; gap:8px; margin-top:5px;">
+                    <button onclick="askChatGPT('${unknownFood}')" style="background:#10a37f; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px; box-shadow:0 2px 4px rgba(0,0,0,0.1);">🤖 ChatGPTに聞く<br><span style="font-size:9px; font-weight:normal;">(質問をコピーして開きます)</span></button>
+                    <button onclick="searchGoogle('${unknownFood}')" style="background:#4285F4; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px; box-shadow:0 2px 4px rgba(0,0,0,0.1);">🔍 Googleで検索する</button>
+                </div>`;
+        }
 
         if (autoFood) {
             lst.push({ N: "🤖 " + autoFood.N, P: autoFood.P, F: autoFood.F, C: autoFood.C, Cal: autoFood.Cal, U: "AI推測" });
@@ -839,6 +882,7 @@ async function sendTamaChat() {
         if (chatHistory.length > 6) chatHistory.shift();
 
     } catch (error) {
+        console.error(error);
         removeMsg(loadingId);
         addChatMsg('bot', '通信エラーだたま...。もう一度送ってたま！');
     } finally {
