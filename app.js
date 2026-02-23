@@ -803,23 +803,36 @@ async function sendTamaChat() {
         let autoFood = null;
         let replaceFood = null;
 
+       // ▼▼ ここから差し替え ▼▼
         if (rawText.includes("[DATA]")) {
             const parts = rawText.split("[DATA]");
             botReply = parts[0].replace(/たまちゃんの返答:/g, "").trim();
             const d = parts[1].split(",");
             if (d.length >= 5) {
-                autoFood = { N: d[0].trim(), P: parseFloat(d[1]), F: parseFloat(d[2]), C: parseFloat(d[3]), Cal: parseInt(d[4]) };
+                // AIの出したPFCを変数に入れる
+                let p = parseFloat(d[1]) || 0;
+                let f = parseFloat(d[2]) || 0;
+                let c = parseFloat(d[3]) || 0;
+                // アプリ側で正確なカロリーを強制計算する！
+                let trueCal = Math.round(p * 4 + f * 9 + c * 4);
+                autoFood = { N: d[0].trim(), P: p, F: f, C: c, Cal: trueCal };
             }
         } else if (rawText.includes("[REPLACE]")) {
             const parts = rawText.split("[REPLACE]");
             botReply = parts[0].replace(/たまちゃんの返答:/g, "").trim();
             const d = parts[1].split(",");
             if (d.length >= 5) {
-                replaceFood = { N: d[0].trim(), P: parseFloat(d[1]), F: parseFloat(d[2]), C: parseFloat(d[3]), Cal: parseInt(d[4]) };
+                // こっちも同じく強制計算！
+                let p = parseFloat(d[1]) || 0;
+                let f = parseFloat(d[2]) || 0;
+                let c = parseFloat(d[3]) || 0;
+                let trueCal = Math.round(p * 4 + f * 9 + c * 4);
+                replaceFood = { N: d[0].trim(), P: p, F: f, C: c, Cal: trueCal };
             }
         } else {
             botReply = rawText.replace(/たまちゃんの返答:/g, "").trim();
         }
+        // ▲▲ ここまで差し替え ▲▲
 
         removeMsg(loadingId);
         botReply = botReply.replace(/\*/g, "");
@@ -904,3 +917,4 @@ function getAppContextStr() {
 }
 
 // ▲▲▲ チャット機能JS ここまで ▲▲▲
+
