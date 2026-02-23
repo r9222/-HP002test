@@ -1,4 +1,4 @@
-// app.js : アプリの脳みそ (Gemma 3 直叩き・ハイブリッド検索・Androidリンク偽装突破版)
+// app.js : アプリの脳みそ (Gemma 3 直叩き・ハイブリッド検索・2ステップ変形UI搭載版)
 
 // ■ グローバル変数
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std" }; 
@@ -611,7 +611,7 @@ function importData(input) {
     reader.readAsText(file);
 }
 
-// ▼▼▼ チャット・AI連携機能 (リンク偽装突破版) ▼▼▼
+// ▼▼▼ チャット・AI連携機能 (2ステップ変形UI搭載) ▼▼▼
 
 const gasUrl = "https://script.google.com/macros/s/AKfycby6THg5PeEHYWWwxFV9VvY7kJ3MAMwoEuaJNs_EK_VZWv9alxqsi25RxDQ2wikkI1-H/exec";
 let recognition;
@@ -641,12 +641,11 @@ const generateAiPrompt = (foodName) => {
     return `「${foodName}」の一般的なカロリーと、PFC（タンパク質・脂質・炭水化物）の数値を調べてください。\n\nまた、私が食事管理アプリにそのままコピペして記録できるよう、回答の最後に以下のフォーマットの〇〇に数値を埋めたテキストを【コピー用テキスト】として出力してください。\n\n${foodName}を食べたよ！カロリーは〇〇kcal、Pは〇〇g、Fは〇〇g、Cは〇〇gだって！`;
 };
 
-// 🚀 リンククリック時に一瞬だけ発動する「すれ違いコピー関数」
-// ※aタグの「onclick」で呼び出され、そのままhrefのリンク先へジャンプします
-window.copyPromptForAI = function(foodName, isGemini) {
+// 🚀 Step 1: プロンプトをコピーして、Step 2のリンクボタンを出現させる関数
+window.prepareAIPrompt = function(foodName, msgId) {
     const text = generateAiPrompt(foodName);
     
-    // 古い手法で「同期的に」確実にコピーする (これで画面遷移前に完了させる)
+    // 確実にコピーを実行
     const textArea = document.createElement("textarea");
     textArea.value = text;
     document.body.appendChild(textArea);
@@ -654,15 +653,16 @@ window.copyPromptForAI = function(foodName, isGemini) {
     try { document.execCommand('copy'); } catch (err) {}
     document.body.removeChild(textArea);
 
-    // 念のため最新のAPIでもコピーを走らせる
     if (navigator.clipboard) {
         navigator.clipboard.writeText(text).catch(()=>{});
     }
 
-    // 画面を止めない通知を出す
-    showToast(isGemini ? "✨ コピー完了たま！\n開いた画面に貼り付けてたま！" : "🤖 コピー完了たま！\n開いた画面に貼り付けてたま！");
-    
-    // ※ここでは window.open しない！ HTML側の aタグ href に任せることでAndroidを騙す
+    // コピー完了を通知
+    showToast("📋 質問文をコピーしたたま！\n開きたいAIを選んで貼り付けてたま！");
+
+    // UIの切り替え（Step1のボタンを消し、Step2のリンクを表示する）
+    document.getElementById(`ai-step1-${msgId}`).style.display = 'none';
+    document.getElementById(`ai-step2-${msgId}`).style.display = 'flex';
 };
 
 function toggleChat() {
@@ -855,18 +855,20 @@ ${text}
         removeMsg(loadingId);
         const newMsgId = addChatMsg('bot', botReply);
 
-        // 🌟 リンク偽装版：buttonタグではなく、純粋な aタグ(リンク) として出力する！
+        // 🌟 2ステップ変形UIの組み込み
         if (unknownFood) {
             const msgEl = document.getElementById(newMsgId).querySelector('.text');
             msgEl.innerHTML += `<br><br>
                 <div style="display:flex; flex-direction:column; gap:8px; margin-top:5px;">
-                    <div style="display:flex; gap:8px; width:100%;">
-                        <a href="https://gemini.google.com/app" target="_blank" onclick="copyPromptForAI('${unknownFood}', true)" style="flex:1; background:#1a73e8; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:11px; box-shadow:0 2px 4px rgba(0,0,0,0.1); text-decoration:none; text-align:center; box-sizing:border-box;">✨ Geminiに聞く</a>
-                        <a href="https://chatgpt.com/" target="_blank" onclick="copyPromptForAI('${unknownFood}', false)" style="flex:1; background:#10a37f; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:11px; box-shadow:0 2px 4px rgba(0,0,0,0.1); text-decoration:none; text-align:center; box-sizing:border-box;">🤖 ChatGPTに聞く</a>
+                    <div id="ai-step1-${newMsgId}">
+                        <button onclick="prepareAIPrompt('${unknownFood}', '${newMsgId}')" style="width:100%; background:#34495e; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px; box-shadow:0 2px 4px rgba(0,0,0,0.1);">📋 質問文をコピーしてAIに聞く</button>
+                    </div>
+                    <div id="ai-step2-${newMsgId}" style="display:none; gap:8px; width:100%;">
+                        <a href="https://gemini.google.com/app" target="_blank" style="flex:1; background:#1a73e8; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:11px; box-shadow:0 2px 4px rgba(0,0,0,0.1); text-decoration:none; text-align:center; box-sizing:border-box;">✨ Geminiを開く</a>
+                        <a href="https://chatgpt.com/" target="_blank" style="flex:1; background:#10a37f; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:11px; box-shadow:0 2px 4px rgba(0,0,0,0.1); text-decoration:none; text-align:center; box-sizing:border-box;">🤖 ChatGPTを開く</a>
                     </div>
                     <a href="https://www.google.com/search?q=${encodeURIComponent(unknownFood + " カロリー PFC")}" target="_blank" style="width:100%; background:#f0f2f5; color:#333; border:1px solid #ccc; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px; box-shadow:0 2px 4px rgba(0,0,0,0.05); text-decoration:none; text-align:center; display:block; box-sizing:border-box;">🔍 Googleで検索する</a>
-                </div>
-                <div style="font-size:9px; color:#888; margin-top:6px; text-align:center;">※AIボタンを押すと、報告用プロンプトが自動コピーされます</div>`;
+                </div>`;
         }
 
         if (autoFood) {
