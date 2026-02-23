@@ -752,7 +752,43 @@ async function sendTamaChat() {
     const context = `現在の摂取: ${lst.reduce((a,b)=>a+b.Cal,0)}kcal\n今日食べたものリスト: ${lst.map(x => x.N).join(', ') || 'まだなし'}`;
     let historyText = chatHistory.map(m => `${m.role === 'user' ? 'あなた' : 'たまちゃん'}: ${m.text}`).join('\n');
     
-    const prompt = `${typeof SYSTEM_PROMPT !== 'undefined' ? SYSTEM_PROMPT : 'たまちゃんです。'}\n\n【状況】\n${context}\n\n【直近の会話履歴】\n${historyText}\n\n【ユーザーの最新の発言】\n${text}`;
+    // ━━━━━ 🌟 魔法のカンペ機能（ここから追加） ━━━━━
+    let cheatSheetText = "";
+    if (typeof DB !== 'undefined') {
+        let matchedFoods = [];
+        const normalizedText = toHira(text).toLowerCase();
+        
+        DB.forEach(x => {
+            const nameHira = toHira(x[1]).toLowerCase();
+            const keys = x[2] ? x[2].split(' ') : [];
+            let isMatch = false;
+            
+            // ユーザーの発言に、データベースの名前やキーワードが含まれているかチェック
+            if (normalizedText.includes(nameHira)) isMatch = true;
+            else {
+                for (let k of keys) {
+                    if (!k) continue;
+                    let kHira = toHira(k).toLowerCase();
+                    if (normalizedText.includes(kHira)) {
+                        isMatch = true; break;
+                    }
+                }
+            }
+            
+            // 一致したらカンペリストに追加
+            if (isMatch) {
+                matchedFoods.push(`- ${x[1]}(${x[3]}あたり): ${x[7]}kcal P${x[4]} F${x[5]} C${x[6]}`);
+            }
+        });
+
+        // 候補が見つかったら、最大5件までをカンペとしてAIに渡す
+        if (matchedFoods.length > 0) {
+            cheatSheetText = `\n【システムからのカンペ: アプリ内データベースの公式数値】\n${matchedFoods.slice(0, 5).join('\n')}\n※上記の食材を登録する場合は、推測せずこの公式数値を基準に計算してね！\n`;
+        }
+    }
+    // ━━━━━ 🌟 魔法のカンペ機能（ここまで追加） ━━━━━
+
+    const prompt = `${typeof SYSTEM_PROMPT !== 'undefined' ? SYSTEM_PROMPT : 'たまちゃんです。'}\n\n【状況】\n${context}\n\n【直近の会話履歴】\n${historyText}\n${cheatSheetText}\n【ユーザーの最新の発言】\n${text}`;
 
     try {
         const response = await fetch(gasUrl, {
@@ -868,6 +904,3 @@ function getAppContextStr() {
 }
 
 // ▲▲▲ チャット機能JS ここまで ▲▲▲
-
-
-
