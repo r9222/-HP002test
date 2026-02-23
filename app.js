@@ -1,4 +1,4 @@
-// app.js : アプリの脳みそ (Gemma 3 直叩き・ChatGPT一本化＆即ジャンプ安定版)
+// app.js : アプリの脳みそ (Gemma 3 直叩き・ChatGPT一本化＆二重起動防止版)
 
 // ■ グローバル変数
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std" }; 
@@ -611,7 +611,7 @@ function importData(input) {
     reader.readAsText(file);
 }
 
-// ▼▼▼ チャット・AI連携機能 (ChatGPT一本化・安定版) ▼▼▼
+// ▼▼▼ チャット・AI連携機能 (二重起動防止版) ▼▼▼
 
 const gasUrl = "https://script.google.com/macros/s/AKfycby6THg5PeEHYWWwxFV9VvY7kJ3MAMwoEuaJNs_EK_VZWv9alxqsi25RxDQ2wikkI1-H/exec";
 let recognition;
@@ -641,11 +641,10 @@ const generateAiPrompt = (foodName) => {
     return `「${foodName}」の一般的なカロリーと、PFC（タンパク質・脂質・炭水化物）の数値を調べてください。\n\nまた、私が食事管理アプリにそのままコピペして記録できるよう、回答の最後に以下のフォーマットの〇〇に数値を埋めたテキストを【コピー用テキスト】として出力してください。\n\n${foodName}を食べたよ！カロリーは〇〇kcal、Pは〇〇g、Fは〇〇g、Cは〇〇gだって！`;
 };
 
-// 🤖 ChatGPT専用の「即ジャンプ＆コピー」関数 (Androidでも確実に動作)
+// 🤖 ChatGPT専用ジャンプ (二重起動を防ぐため _blank を廃止し同一タブ遷移に変更)
 window.askChatGPT = function(foodName) {
     const text = generateAiPrompt(foodName);
     
-    // 確実な同期コピー処理
     const textArea = document.createElement("textarea");
     textArea.value = text;
     document.body.appendChild(textArea);
@@ -657,8 +656,10 @@ window.askChatGPT = function(foodName) {
         navigator.clipboard.writeText(text).catch(()=>{});
     }
 
-    showToast("🤖 コピー完了たま！\n開いた画面に貼り付けてたま！");
-    window.open("https://chatgpt.com/", "_blank");
+    showToast("🤖 質問文をコピーしたたま！");
+    
+    // アプリがあればアプリが開き、なければ現在のタブがChatGPTに切り替わります（戻るボタンで戻れます）
+    window.location.href = "https://chatgpt.com/";
 };
 
 // 🔍 Google検索用
@@ -857,12 +858,15 @@ ${text}
         removeMsg(loadingId);
         const newMsgId = addChatMsg('bot', botReply);
 
-        // 🌟 シンプル＆最強：ChatGPT即ジャンプ ＋ Google検索
+        // 🌟 シンプルな1行デザインに修正＆注釈をボタン外に分離
         if (unknownFood) {
             const msgEl = document.getElementById(newMsgId).querySelector('.text');
             msgEl.innerHTML += `<br><br>
                 <div style="display:flex; flex-direction:column; gap:8px; margin-top:5px;">
-                    <button onclick="askChatGPT('${unknownFood}')" style="width:100%; background:#10a37f; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px; box-shadow:0 2px 4px rgba(0,0,0,0.1);">🤖 AI(ChatGPT)に聞いてみる<br><span style="font-size:10px; font-weight:normal;">※質問文が自動でコピーされます</span></button>
+                    <div style="text-align:center;">
+                        <button onclick="askChatGPT('${unknownFood}')" style="width:100%; background:#10a37f; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px; box-shadow:0 2px 4px rgba(0,0,0,0.1);">🤖 ChatGPTに聞く</button>
+                        <div style="font-size:9px; color:#888; margin-top:4px;">※質問文が自動でコピーされます</div>
+                    </div>
                     <button onclick="searchGoogle('${unknownFood}')" style="width:100%; background:#f0f2f5; color:#333; border:1px solid #ccc; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">🔍 自分でGoogle検索する</button>
                 </div>`;
         }
