@@ -1,4 +1,4 @@
-// app.js : アプリの脳みそ (Gemma 3 直叩き・ハイブリッド検索・Androidアプリ連携対応版)
+// app.js : アプリの脳みそ (Gemma 3 直叩き・ハイブリッド検索・Android完全突破版)
 
 // ■ グローバル変数
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std" }; 
@@ -611,13 +611,13 @@ function importData(input) {
     reader.readAsText(file);
 }
 
-// ▼▼▼ チャット機能JS (GAS中継 & 音声入力対応版) ▼▼▼
+// ▼▼▼ チャット・AI連携機能 (Android突破版) ▼▼▼
 
 const gasUrl = "https://script.google.com/macros/s/AKfycby6THg5PeEHYWWwxFV9VvY7kJ3MAMwoEuaJNs_EK_VZWv9alxqsi25RxDQ2wikkI1-H/exec";
 let recognition;
 let isRecording = false;
 
-// 🌟 新機能：Androidアプリ連携を邪魔しない「フワッと通知（トースト）」関数
+// 🌟 トースト通知 (alertの代わり)
 function showToast(msg) {
     let toast = document.getElementById('tama-toast');
     if (!toast) {
@@ -641,46 +641,42 @@ const generateAiPrompt = (foodName) => {
     return `「${foodName}」の一般的なカロリーと、PFC（タンパク質・脂質・炭水化物）の数値を調べてください。\n\nまた、私が食事管理アプリにそのままコピペして記録できるよう、回答の最後に以下のフォーマットの〇〇に数値を埋めたテキストを【コピー用テキスト】として出力してください。\n\n${foodName}を食べたよ！カロリーは〇〇kcal、Pは〇〇g、Fは〇〇g、Cは〇〇gだって！`;
 };
 
-// 🤖 ChatGPT用 (Androidアプリ連携対応・alert廃止)
+// 🚀 コピー＆ジャンプを安全に行う共通関数 (Androidバグ完全回避)
+function copyAndOpen(text, url) {
+    // 1. 古い手法で「同期的に」確実にコピーする (これでブロックを防ぐ)
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    try { document.execCommand('copy'); } catch (err) {}
+    document.body.removeChild(textArea);
+
+    // 2. 念のため最新のAPIでもコピーを走らせる
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).catch(()=>{});
+    }
+
+    // 3. 画面を止めない通知を出す
+    showToast("✨ コピー完了たま！\n開いた画面に貼り付けてたま！");
+
+    // 4. ユーザーがボタンをタップした「まさにその瞬間（同期コンテキスト）」に開く！
+    // ※これならAndroidのアプリ連携がセキュリティでブロックされなくなります。
+    window.open(url, "_blank");
+}
+
+// 🤖 ChatGPT用
 window.askChatGPT = function(foodName) {
-    const text = generateAiPrompt(foodName);
-    navigator.clipboard.writeText(text).then(() => {
-        showToast("🤖 コピー完了たま！\n開いた画面に貼り付けてたま！");
-        // aタグを擬似的にクリックさせることで、Androidのアプリ連携を最も自然に発動させます
-        const a = document.createElement('a');
-        a.href = "https://chatgpt.com/";
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-    }).catch(err => { showToast("コピーに失敗したたま…"); });
+    copyAndOpen(generateAiPrompt(foodName), "https://chatgpt.com/");
 };
 
-// ✨ Gemini用 (Androidアプリ連携対応・alert廃止)
+// ✨ Gemini用
 window.askGemini = function(foodName) {
-    const text = generateAiPrompt(foodName);
-    navigator.clipboard.writeText(text).then(() => {
-        showToast("✨ コピー完了たま！\n開いた画面に貼り付けてたま！");
-        const a = document.createElement('a');
-        a.href = "https://gemini.google.com/app"; // アプリ連携が一番発動しやすい公式URL
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-    }).catch(err => { showToast("コピーに失敗したたま…"); });
+    copyAndOpen(generateAiPrompt(foodName), "https://gemini.google.com/");
 };
 
 // 🔍 Google検索用
 window.searchGoogle = function(foodName) {
-    const a = document.createElement('a');
-    a.href = `https://www.google.com/search?q=${encodeURIComponent(foodName + " カロリー PFC")}`;
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    window.open(`https://www.google.com/search?q=${encodeURIComponent(foodName + " カロリー PFC")}`, "_blank");
 };
 
 
@@ -874,7 +870,6 @@ ${text}
         removeMsg(loadingId);
         const newMsgId = addChatMsg('bot', botReply);
 
-        // 🌟 2段構造の美しいボタンレイアウト！ (Android連携対応版)
         if (unknownFood) {
             const msgEl = document.getElementById(newMsgId).querySelector('.text');
             msgEl.innerHTML += `<br><br>
