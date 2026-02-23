@@ -1,4 +1,4 @@
-// app.js : アプリの脳みそ (Gemma 3 直叩き・ハイブリッド検索・2ステップ変形UI搭載版)
+// app.js : アプリの脳みそ (Gemma 3 直叩き・ChatGPT一本化＆即ジャンプ安定版)
 
 // ■ グローバル変数
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std" }; 
@@ -611,7 +611,7 @@ function importData(input) {
     reader.readAsText(file);
 }
 
-// ▼▼▼ チャット・AI連携機能 (2ステップ変形UI搭載) ▼▼▼
+// ▼▼▼ チャット・AI連携機能 (ChatGPT一本化・安定版) ▼▼▼
 
 const gasUrl = "https://script.google.com/macros/s/AKfycby6THg5PeEHYWWwxFV9VvY7kJ3MAMwoEuaJNs_EK_VZWv9alxqsi25RxDQ2wikkI1-H/exec";
 let recognition;
@@ -641,11 +641,11 @@ const generateAiPrompt = (foodName) => {
     return `「${foodName}」の一般的なカロリーと、PFC（タンパク質・脂質・炭水化物）の数値を調べてください。\n\nまた、私が食事管理アプリにそのままコピペして記録できるよう、回答の最後に以下のフォーマットの〇〇に数値を埋めたテキストを【コピー用テキスト】として出力してください。\n\n${foodName}を食べたよ！カロリーは〇〇kcal、Pは〇〇g、Fは〇〇g、Cは〇〇gだって！`;
 };
 
-// 🚀 Step 1: プロンプトをコピーして、Step 2のリンクボタンを出現させる関数
-window.prepareAIPrompt = function(foodName, msgId) {
+// 🤖 ChatGPT専用の「即ジャンプ＆コピー」関数 (Androidでも確実に動作)
+window.askChatGPT = function(foodName) {
     const text = generateAiPrompt(foodName);
     
-    // 確実にコピーを実行
+    // 確実な同期コピー処理
     const textArea = document.createElement("textarea");
     textArea.value = text;
     document.body.appendChild(textArea);
@@ -657,13 +657,15 @@ window.prepareAIPrompt = function(foodName, msgId) {
         navigator.clipboard.writeText(text).catch(()=>{});
     }
 
-    // コピー完了を通知
-    showToast("📋 質問文をコピーしたたま！\n開きたいAIを選んで貼り付けてたま！");
-
-    // UIの切り替え（Step1のボタンを消し、Step2のリンクを表示する）
-    document.getElementById(`ai-step1-${msgId}`).style.display = 'none';
-    document.getElementById(`ai-step2-${msgId}`).style.display = 'flex';
+    showToast("🤖 コピー完了たま！\n開いた画面に貼り付けてたま！");
+    window.open("https://chatgpt.com/", "_blank");
 };
+
+// 🔍 Google検索用
+window.searchGoogle = function(foodName) {
+    window.open(`https://www.google.com/search?q=${encodeURIComponent(foodName + " カロリー PFC")}`, "_blank");
+};
+
 
 function toggleChat() {
     const win = document.getElementById('tama-chat-window');
@@ -855,19 +857,13 @@ ${text}
         removeMsg(loadingId);
         const newMsgId = addChatMsg('bot', botReply);
 
-        // 🌟 2ステップ変形UIの組み込み
+        // 🌟 シンプル＆最強：ChatGPT即ジャンプ ＋ Google検索
         if (unknownFood) {
             const msgEl = document.getElementById(newMsgId).querySelector('.text');
             msgEl.innerHTML += `<br><br>
                 <div style="display:flex; flex-direction:column; gap:8px; margin-top:5px;">
-                    <div id="ai-step1-${newMsgId}">
-                        <button onclick="prepareAIPrompt('${unknownFood}', '${newMsgId}')" style="width:100%; background:#34495e; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px; box-shadow:0 2px 4px rgba(0,0,0,0.1);">📋 質問文をコピーしてAIに聞く</button>
-                    </div>
-                    <div id="ai-step2-${newMsgId}" style="display:none; gap:8px; width:100%;">
-                        <a href="https://gemini.google.com/app" target="_blank" style="flex:1; background:#1a73e8; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:11px; box-shadow:0 2px 4px rgba(0,0,0,0.1); text-decoration:none; text-align:center; box-sizing:border-box;">✨ Geminiを開く</a>
-                        <a href="https://chatgpt.com/" target="_blank" style="flex:1; background:#10a37f; color:white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:11px; box-shadow:0 2px 4px rgba(0,0,0,0.1); text-decoration:none; text-align:center; box-sizing:border-box;">🤖 ChatGPTを開く</a>
-                    </div>
-                    <a href="https://www.google.com/search?q=${encodeURIComponent(unknownFood + " カロリー PFC")}" target="_blank" style="width:100%; background:#f0f2f5; color:#333; border:1px solid #ccc; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px; box-shadow:0 2px 4px rgba(0,0,0,0.05); text-decoration:none; text-align:center; display:block; box-sizing:border-box;">🔍 Googleで検索する</a>
+                    <button onclick="askChatGPT('${unknownFood}')" style="width:100%; background:#10a37f; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px; box-shadow:0 2px 4px rgba(0,0,0,0.1);">🤖 AI(ChatGPT)に聞いてみる<br><span style="font-size:10px; font-weight:normal;">※質問文が自動でコピーされます</span></button>
+                    <button onclick="searchGoogle('${unknownFood}')" style="width:100%; background:#f0f2f5; color:#333; border:1px solid #ccc; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">🔍 自分でGoogle検索する</button>
                 </div>`;
         }
 
