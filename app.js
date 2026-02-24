@@ -1,4 +1,4 @@
-// app.js : アプリの脳みそ (Gemma 3 直叩き・ChatGPT一本化＆公式風スタイリッシュUI版)
+// app.js : アプリの脳みそ (Gemma 3 直叩き・ハイブリッド検索＆公式風スタイリッシュUI版)
 
 // ■ グローバル変数
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std" }; 
@@ -613,7 +613,8 @@ function importData(input) {
 
 // ▼▼▼ チャット・AI連携機能 ▼▼▼
 
-const gasUrl = "https://script.google.com/macros/s/AKfycby6THg5PeEHYWWwxFV9VvY7kJ3MAMwoEuaJNs_EK_VZWv9alxqsi25RxDQ2wikkI1-H/exec";
+// 🌟 ここが新しいURLに差し替わっています！
+const gasUrl = "https://script.google.com/macros/s/AKfycbyHR1oJYLkZFSqbSD73h1TTWnB7MXiCYt4DDSie9SbQxxK6Go-rf1DcRyS_cmYA_S-L/exec";
 let recognition;
 let isRecording = false;
 
