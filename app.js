@@ -1,4 +1,4 @@
-// app.js : アプリの脳みそ (Gemma 3 直叩き・ハイブリッド検索＆公式風スタイリッシュUI版)
+// app.js : アプリの脳みそ (Gemma 3 ＋ Tavily ハイブリッド検索＆公式風スタイリッシュUI版)
 
 // ■ グローバル変数
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std" }; 
@@ -613,8 +613,8 @@ function importData(input) {
 
 // ▼▼▼ チャット・AI連携機能 ▼▼▼
 
-// 🌟 ここが新しいURLに差し替わっています！
-const gasUrl = "https://script.google.com/macros/s/AKfycbyHR1oJYLkZFSqbSD73h1TTWnB7MXiCYt4DDSie9SbQxxK6Go-rf1DcRyS_cmYA_S-L/exec";
+// 🌟 ここに大林さんが作ってくれた最新のURLをセットしました！
+const gasUrl = "https://script.google.com/macros/s/AKfycbxfD_oYqqac1rG0U1Po9cWiHGq1jslASe2GQhEmVtQj8RjDTeIvVtHyA8tpeKHQhzoN/exec";
 let recognition;
 let isRecording = false;
 
@@ -851,7 +851,6 @@ ${text}
         const newMsgId = addChatMsg('bot', botReply);
 
         // 🌟 デザイン完全リニューアル！ 公式カラー＆SVGアイコン搭載・横並びスタイル
-        // ※ChatGPTから target="_blank" を削除し、二重起動を完全に防ぎます。
         if (unknownFood) {
             const msgEl = document.getElementById(newMsgId).querySelector('.text');
             msgEl.innerHTML += `<br><br>
@@ -875,7 +874,7 @@ ${text}
         }
 
         if (autoFood) {
-            lst.push({ N: "🤖 " + autoFood.N, P: autoFood.P, F: autoFood.F, C: autoFood.C, Cal: autoFood.Cal, U: "AI推測" });
+            lst.push({ N: "🤖 " + autoFood.N, P: autoFood.P, F: autoFood.F, C: autoFood.C, Cal: autoFood.Cal, U: "AI検索" });
             localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } 
@@ -905,7 +904,7 @@ function addChatMsg(role, text) {
     const iconDiv = document.createElement('div');
     iconDiv.className = 'icon'; iconDiv.innerHTML = '<img src="new_tama.png">';
     const textDiv = document.createElement('div');
-    textDiv.className = 'text'; textDiv.innerText = text;
+    textDiv.className = 'text'; textDiv.innerHTML = text;
     if(role === 'bot') { div.appendChild(iconDiv); div.appendChild(textDiv); } 
     else { div.appendChild(textDiv); div.appendChild(iconDiv); }
     box.appendChild(div); box.scrollTop = box.scrollHeight;
