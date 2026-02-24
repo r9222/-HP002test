@@ -680,11 +680,13 @@ function setupChatEnterKey() {
 
 function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
+    const globalMicBtn = document.getElementById('global-mic-btn'); // 追加
     const inputEl = document.getElementById('chat-input');
 
     if (isRecording) {
         isRecording = false;
         micBtn.classList.remove('recording');
+        if (globalMicBtn) globalMicBtn.classList.remove('recording'); // 追加
         inputEl.placeholder = "例: 夜ご飯なにがいい？";
         try { recognition.stop(); } catch(e) {}
         return;
@@ -704,6 +706,7 @@ function toggleMic() {
     recognition.onstart = () => {
         isRecording = true;
         micBtn.classList.add('recording');
+        if (globalMicBtn) globalMicBtn.classList.add('recording'); // 追加
         inputEl.placeholder = "たまちゃん聞いてるたま！喋って！";
         inputEl.value = ''; 
     };
@@ -713,6 +716,7 @@ function toggleMic() {
         inputEl.value = event.results[0][0].transcript;
         isRecording = false;
         micBtn.classList.remove('recording');
+        if (globalMicBtn) globalMicBtn.classList.remove('recording'); // 追加
         inputEl.placeholder = "例: 夜ご飯なにがいい？";
         sendTamaChat();
     };
@@ -720,6 +724,7 @@ function toggleMic() {
     recognition.onerror = (event) => {
         isRecording = false;
         micBtn.classList.remove('recording');
+        if (globalMicBtn) globalMicBtn.classList.remove('recording'); // 追加
         inputEl.placeholder = "例: 夜ご飯なにがいい？";
     };
 
@@ -727,13 +732,13 @@ function toggleMic() {
         if (isRecording) {
             isRecording = false;
             micBtn.classList.remove('recording');
+            if (globalMicBtn) globalMicBtn.classList.remove('recording'); // 追加
             inputEl.placeholder = "例: 夜ご飯なにがいい？";
             if (inputEl.value.trim() !== "") { sendTamaChat(); }
         }
     };
     recognition.start();
 }
-
 async function sendTamaChat() {
     const inputEl = document.getElementById('chat-input');
     const text = inputEl.value.trim();
@@ -914,4 +919,22 @@ function getAppContextStr() {
     return `現在の摂取: ${t.Cal}kcal (残り ${remCal}kcal)\n今日食べたもの: ${lst.map(x => x.N).join(', ') || 'なし'}`;
 }
 
+// ▼ グローバルマイクボタン用関数 ▼
+function startGlobalMic() {
+    const win = document.getElementById('tama-chat-window');
+    const btn = document.getElementById('tama-chat-btn');
+    
+    // チャットウィンドウが開いていなければ開く
+    if (win.style.display !== 'flex') {
+        win.style.display = 'flex';
+        btn.style.display = 'none';
+    }
+    
+    // 少し待ってからマイクを起動（UIの展開を待つ）
+    setTimeout(() => {
+        if (!isRecording) {
+            toggleMic();
+        }
+    }, 100);
+}
 // ▲▲▲ チャット機能JS ここまで ▲▲▲
