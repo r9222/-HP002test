@@ -617,6 +617,22 @@ const gasUrl = "https://script.google.com/macros/s/AKfycbxfD_oYqqac1rG0U1Po9cWiH
 let recognition;
 let isRecording = false;
 
+// ★ 追加: アプリがバックグラウンドに回った時にマイクを強制終了
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden && isRecording) {
+        isRecording = false;
+        const micBtn = document.getElementById('mic-btn');
+        const globalMicBtn = document.getElementById('global-mic-btn');
+        const inputEl = document.getElementById('chat-input');
+        
+        if (micBtn) micBtn.classList.remove('recording');
+        if (globalMicBtn) globalMicBtn.classList.remove('recording');
+        if (inputEl) inputEl.placeholder = "例: 夜ご飯なにがいい？";
+        
+        try { if (recognition) recognition.stop(); } catch(e) {}
+    }
+});
+
 function showToast(msg) {
     let toast = document.getElementById('tama-toast');
     if (!toast) {
