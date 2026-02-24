@@ -1,4 +1,4 @@
-// app.js : アプリの脳みそ (Gemma 3 ＋ Tavily ハイブリッド検索＆公式風スタイリッシュUI版)
+// app.js : アプリの脳みそ (Gemma 3 ＋ Tavily ハイブリッド検索＆神プロンプト版)
 
 // ■ グローバル変数
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std" }; 
@@ -613,12 +613,12 @@ function importData(input) {
 
 // ▼▼▼ チャット・AI連携機能 ▼▼▼
 
-// 🌟 ここに大林さんが作ってくれた最新のURLをセットしました！
+// 大林さんの最新GAS URL！
 const gasUrl = "https://script.google.com/macros/s/AKfycbxfD_oYqqac1rG0U1Po9cWiHGq1jslASe2GQhEmVtQj8RjDTeIvVtHyA8tpeKHQhzoN/exec";
 let recognition;
 let isRecording = false;
 
-// 🌟 トースト通知 (ポップアップメッセージ)
+// トースト通知 (ポップアップメッセージ)
 function showToast(msg) {
     let toast = document.getElementById('tama-toast');
     if (!toast) {
@@ -774,6 +774,7 @@ async function sendTamaChat() {
         }
     }
 
+    // 🌟 ここが今回パワーアップした神プロンプトです！！ 🌟
     const prompt = `
 ${typeof SYSTEM_PROMPT !== 'undefined' ? SYSTEM_PROMPT : 'あなたは「たまちゃん」です。'}
 
@@ -790,8 +791,12 @@ ${text}
 【最終確認・絶対ルール】
 1. 必ず「たまちゃん」として、語尾に「たま」をつけて返答してください。
 2. 返答の先頭に「たまちゃん:」という署名や、文字を太くするマークダウン（**）は絶対に使わないでください。
-3. 食材を記録・修正する場合は、文章の最後に [DATA] または [REPLACE] タグを使用し、「名前,P,F,C,カロリー」のカンマ区切り（数字のみ）を出力してください。
-4. 正確な数値がわからないチェーン店や市販品の場合は、絶対に推測せず、文章の最後に [UNKNOWN] タグを使用し、「[UNKNOWN] メニュー名」を出力してください。
+3. 食材の自動記録ルール（重要）：
+   - ユーザーが「食べた」「登録して」「追加して」と明確に記録を指示した時のみ、文章の最後に [DATA] または [REPLACE] タグを使用し、「名前,P,F,C,カロリー」のカンマ区切り（数字のみ）を出力してください。その際、会話の中で「〇〇をリストに追加したたま！」と必ず報告してください。
+   - ユーザーが「〇〇のカロリーは？」「〇〇を調べて」など、単に成分や情報を質問しただけの時は、絶対に [DATA] タグを出力しないでください。
+   - 単に成分を質問された場合は、PFCやカロリーを教えた後、必ず「今日食べたリストに追加するたま？」とユーザーに確認してください。
+4. 検索結果に複数の候補があって特定できない場合は、勝手に類似品で代用せず、「〇〇のことだたま？それとも△△だたま？」とユーザーに確認してください。
+5. 正確な数値がわからないチェーン店や市販品の場合は、絶対に推測せず、文章の最後に [UNKNOWN] タグを使用し、「[UNKNOWN] メニュー名」を出力してください。
 `;
 
     try {
@@ -850,7 +855,6 @@ ${text}
         removeMsg(loadingId);
         const newMsgId = addChatMsg('bot', botReply);
 
-        // 🌟 デザイン完全リニューアル！ 公式カラー＆SVGアイコン搭載・横並びスタイル
         if (unknownFood) {
             const msgEl = document.getElementById(newMsgId).querySelector('.text');
             msgEl.innerHTML += `<br><br>
