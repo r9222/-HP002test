@@ -613,12 +613,10 @@ function importData(input) {
 
 // ▼▼▼ チャット・AI連携機能 ▼▼▼
 
-// 大林さんの最新GAS URL！
 const gasUrl = "https://script.google.com/macros/s/AKfycbxfD_oYqqac1rG0U1Po9cWiHGq1jslASe2GQhEmVtQj8RjDTeIvVtHyA8tpeKHQhzoN/exec";
 let recognition;
 let isRecording = false;
 
-// トースト通知 (ポップアップメッセージ)
 function showToast(msg) {
     let toast = document.getElementById('tama-toast');
     if (!toast) {
@@ -637,15 +635,12 @@ function showToast(msg) {
     }, 3000);
 }
 
-// 🪄 魔法のプロンプト生成関数
 const generateAiPrompt = (foodName) => {
     return `「${foodName}」の一般的なカロリーと、PFC（タンパク質・脂質・炭水化物）の数値を調べてください。\n\nまた、私が食事管理アプリにそのままコピペして記録できるよう、回答の最後に以下のフォーマットの〇〇に数値を埋めたテキストを【コピー用テキスト】として出力してください。\n\n${foodName}を食べたよ！カロリーは〇〇kcal、Pは〇〇g、Fは〇〇g、Cは〇〇gだって！`;
 };
 
-// 🚀 リンククリック時に発動するコピー関数
 window.copyPromptForAI = function(foodName) {
     const text = generateAiPrompt(foodName);
-    
     const textArea = document.createElement("textarea");
     textArea.value = text;
     document.body.appendChild(textArea);
@@ -678,15 +673,28 @@ function setupChatEnterKey() {
     input.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) sendTamaChat(); });
 }
 
+// グローバルマイクボタン用関数
+function startGlobalMic() {
+    const win = document.getElementById('tama-chat-window');
+    const btn = document.getElementById('tama-chat-btn');
+    if (win.style.display !== 'flex') {
+        win.style.display = 'flex';
+        btn.style.display = 'none';
+    }
+    setTimeout(() => {
+        if (!isRecording) toggleMic();
+    }, 100);
+}
+
 function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
-    const globalMicBtn = document.getElementById('global-mic-btn'); // 追加
+    const globalMicBtn = document.getElementById('global-mic-btn');
     const inputEl = document.getElementById('chat-input');
 
     if (isRecording) {
         isRecording = false;
         micBtn.classList.remove('recording');
-        if (globalMicBtn) globalMicBtn.classList.remove('recording'); // 追加
+        if (globalMicBtn) globalMicBtn.classList.remove('recording');
         inputEl.placeholder = "例: 夜ご飯なにがいい？";
         try { recognition.stop(); } catch(e) {}
         return;
@@ -706,7 +714,7 @@ function toggleMic() {
     recognition.onstart = () => {
         isRecording = true;
         micBtn.classList.add('recording');
-        if (globalMicBtn) globalMicBtn.classList.add('recording'); // 追加
+        if (globalMicBtn) globalMicBtn.classList.add('recording');
         inputEl.placeholder = "たまちゃん聞いてるたま！喋って！";
         inputEl.value = ''; 
     };
@@ -716,7 +724,7 @@ function toggleMic() {
         inputEl.value = event.results[0][0].transcript;
         isRecording = false;
         micBtn.classList.remove('recording');
-        if (globalMicBtn) globalMicBtn.classList.remove('recording'); // 追加
+        if (globalMicBtn) globalMicBtn.classList.remove('recording');
         inputEl.placeholder = "例: 夜ご飯なにがいい？";
         sendTamaChat();
     };
@@ -724,7 +732,7 @@ function toggleMic() {
     recognition.onerror = (event) => {
         isRecording = false;
         micBtn.classList.remove('recording');
-        if (globalMicBtn) globalMicBtn.classList.remove('recording'); // 追加
+        if (globalMicBtn) globalMicBtn.classList.remove('recording');
         inputEl.placeholder = "例: 夜ご飯なにがいい？";
     };
 
@@ -732,13 +740,14 @@ function toggleMic() {
         if (isRecording) {
             isRecording = false;
             micBtn.classList.remove('recording');
-            if (globalMicBtn) globalMicBtn.classList.remove('recording'); // 追加
+            if (globalMicBtn) globalMicBtn.classList.remove('recording');
             inputEl.placeholder = "例: 夜ご飯なにがいい？";
             if (inputEl.value.trim() !== "") { sendTamaChat(); }
         }
     };
     recognition.start();
 }
+
 async function sendTamaChat() {
     const inputEl = document.getElementById('chat-input');
     const text = inputEl.value.trim();
@@ -779,7 +788,6 @@ async function sendTamaChat() {
         }
     }
 
-    // ★ プロンプト構築部分をスッキリ最適化！ ★
     const prompt = `
 ${typeof SYSTEM_PROMPT !== 'undefined' ? SYSTEM_PROMPT : 'あなたは「たまちゃん」です。'}
 
@@ -812,17 +820,20 @@ ${text}
         let botReply = "";
         let autoFood = null;
         let replaceFood = null;
+        let targetFoodName = null;
+        let deleteFood = null;
         let unknownFood = null; 
 
         const dataIdx = rawText.indexOf("[DATA]");
         const repIdx = rawText.indexOf("[REPLACE]");
+        const delIdx = rawText.indexOf("[DELETE]");
         const unkIdx = rawText.indexOf("[UNKNOWN]");
 
         if (dataIdx !== -1) {
             botReply = rawText.substring(0, dataIdx).trim();
             let dStr = rawText.substring(dataIdx + 6).trim();
             let d = dStr.split(/,|、/); 
-            if (d.length >= 5) {
+            if (d.length >= 4) {
                 let p = parseFloat(d[1].replace(/[^\d.]/g, "")) || 0;
                 let f = parseFloat(d[2].replace(/[^\d.]/g, "")) || 0;
                 let c = parseFloat(d[3].replace(/[^\d.]/g, "")) || 0;
@@ -832,14 +843,21 @@ ${text}
         } else if (repIdx !== -1) {
             botReply = rawText.substring(0, repIdx).trim();
             let dStr = rawText.substring(repIdx + 9).trim();
-            let d = dStr.split(/,|、/);
-            if (d.length >= 5) {
-                let p = parseFloat(d[1].replace(/[^\d.]/g, "")) || 0;
-                let f = parseFloat(d[2].replace(/[^\d.]/g, "")) || 0;
-                let c = parseFloat(d[3].replace(/[^\d.]/g, "")) || 0;
-                let trueCal = Math.round(p * 4 + f * 9 + c * 4);
-                replaceFood = { N: d[0].trim(), P: p, F: f, C: c, Cal: trueCal };
+            let parts = dStr.split('|');
+            if (parts.length === 2) {
+                targetFoodName = parts[0].trim();
+                let d = parts[1].split(/,|、/);
+                if (d.length >= 4) {
+                    let p = parseFloat(d[1].replace(/[^\d.]/g, "")) || 0;
+                    let f = parseFloat(d[2].replace(/[^\d.]/g, "")) || 0;
+                    let c = parseFloat(d[3].replace(/[^\d.]/g, "")) || 0;
+                    let trueCal = Math.round(p * 4 + f * 9 + c * 4);
+                    replaceFood = { N: d[0].trim(), P: p, F: f, C: c, Cal: trueCal };
+                }
             }
+        } else if (delIdx !== -1) {
+            botReply = rawText.substring(0, delIdx).trim();
+            deleteFood = rawText.substring(delIdx + 8).trim();
         } else if (unkIdx !== -1) {
             botReply = rawText.substring(0, unkIdx).trim();
             unknownFood = rawText.substring(unkIdx + 9).trim();
@@ -877,14 +895,39 @@ ${text}
             localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } 
-        else if (replaceFood) {
-            if (lst.length > 0) lst.pop(); 
-            if (replaceFood.Cal > 0 || replaceFood.P > 0 || replaceFood.F > 0 || replaceFood.C > 0) {
-                lst.push({ N: "🤖 " + replaceFood.N, P: replaceFood.P, F: replaceFood.F, C: replaceFood.C, Cal: replaceFood.Cal, U: "AI修正" });
+        else if (deleteFood) {
+            let foundIdx = -1;
+            const searchTarget = deleteFood.replace(/🤖\s*/g, '').trim().toLowerCase();
+            for (let i = lst.length - 1; i >= 0; i--) {
+                const itemName = lst[i].N.replace(/🤖\s*/g, '').trim().toLowerCase();
+                if (itemName.includes(searchTarget) || searchTarget.includes(itemName)) {
+                    foundIdx = i; break;
+                }
+            }
+            if (foundIdx !== -1) {
+                lst.splice(foundIdx, 1);
+            }
+            localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd();
+        }
+        else if (replaceFood && targetFoodName) {
+            let foundIdx = -1;
+            const searchTarget = targetFoodName.replace(/🤖\s*/g, '').trim().toLowerCase();
+            for (let i = lst.length - 1; i >= 0; i--) {
+                const itemName = lst[i].N.replace(/🤖\s*/g, '').trim().toLowerCase();
+                if (itemName.includes(searchTarget) || searchTarget.includes(itemName)) {
+                    foundIdx = i; break;
+                }
+            }
+            const newItem = { N: "🤖 " + replaceFood.N, P: replaceFood.P, F: replaceFood.F, C: replaceFood.C, Cal: replaceFood.Cal, U: "AI修正" };
+            if (foundIdx !== -1) {
+                lst[foundIdx] = newItem; 
+            } else {
+                lst.push(newItem); 
             }
             localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
+        
         chatHistory.push({ role: 'model', text: botReply });
         if (chatHistory.length > 6) chatHistory.shift();
     } catch (error) {
@@ -918,23 +961,3 @@ function getAppContextStr() {
     const remCal = TG.cal - t.Cal;
     return `現在の摂取: ${t.Cal}kcal (残り ${remCal}kcal)\n今日食べたもの: ${lst.map(x => x.N).join(', ') || 'なし'}`;
 }
-
-// ▼ グローバルマイクボタン用関数 ▼
-function startGlobalMic() {
-    const win = document.getElementById('tama-chat-window');
-    const btn = document.getElementById('tama-chat-btn');
-    
-    // チャットウィンドウが開いていなければ開く
-    if (win.style.display !== 'flex') {
-        win.style.display = 'flex';
-        btn.style.display = 'none';
-    }
-    
-    // 少し待ってからマイクを起動（UIの展開を待つ）
-    setTimeout(() => {
-        if (!isRecording) {
-            toggleMic();
-        }
-    }, 100);
-}
-// ▲▲▲ チャット機能JS ここまで ▲▲▲
