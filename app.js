@@ -1,21 +1,11 @@
-// app.js : アプリの脳みそ (PFC計算バグ＆iOSマイク＆アルコール完全修正版)
+// app.js : アプリの脳みそ (最強の3連レシピボタン搭載・完全バグ修正版)
 
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std", alcMode: false }; 
 let lst = []; let fav = []; let myFoods = []; let hist = []; let bodyData = []; let chatHistory = []; let selIdx = -1; let editIdx = -1; 
 const toHira = s => s.replace(/[\u30a1-\u30f6]/g, m => String.fromCharCode(m.charCodeAt(0) - 0x60)); 
 
-function parseNum(val) {
-    if (typeof val !== 'string') return parseFloat(val) || 0;
-    const half = val.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
-    return parseFloat(half) || 0;
-}
-
-function getAutoTime() {
-    const h = new Date().getHours();
-    if(h >= 4 && h < 11) return "朝";
-    if(h >= 11 && h < 16) return "昼";
-    return "晩"; 
-}
+function parseNum(val) { if (typeof val !== 'string') return parseFloat(val) || 0; const half = val.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)); return parseFloat(half) || 0; }
+function getAutoTime() { const h = new Date().getHours(); if(h >= 4 && h < 11) return "朝"; if(h >= 11 && h < 16) return "昼"; return "晩"; }
 
 window.onload = () => {
     if (localStorage.getItem('tf_tg')) { TG = JSON.parse(localStorage.getItem('tf_tg')); if (TG.alcMode === undefined) TG.alcMode = false; }
@@ -28,7 +18,6 @@ window.onload = () => {
     const d = new Date(); const today = `${d.getFullYear()}-${("0"+(d.getMonth()+1)).slice(-2)}-${("0"+d.getDate()).slice(-2)}`;
     if(document.getElementById('b-date')) document.getElementById('b-date').value = today;
     if(document.getElementById('reset-date')) document.getElementById('reset-date').value = today;
-
     document.getElementById('alc-mode-chk').checked = TG.alcMode;
     document.getElementById('pfc-mode').value = TG.mode;
     if(document.getElementById('cust-cal')) document.getElementById('cust-cal').value = TG.cal;
@@ -37,8 +26,7 @@ window.onload = () => {
 
 function toggleAlcMode(isInit = false) {
     if (!isInit) { TG.alcMode = document.getElementById('alc-mode-chk').checked; localStorage.setItem('tf_tg', JSON.stringify(TG)); }
-    document.getElementById('mtr-a').style.display = TG.alcMode ? 'block' : 'none';
-    document.getElementById('m-a-wrap').style.display = TG.alcMode ? 'block' : 'none'; upd(); ren();
+    document.getElementById('mtr-a').style.display = TG.alcMode ? 'block' : 'none'; document.getElementById('m-a-wrap').style.display = TG.alcMode ? 'block' : 'none'; upd(); ren();
 }
 
 function mkCat() {
@@ -54,13 +42,8 @@ function shwList(c, btn) {
     btn.classList.add('act'); l.dataset.cat = c;
     l.innerHTML = `<div class="list-head"><span>${c === '⭐' ? 'お気に入り' : (c === '📂' ? 'My食品' : c)}</span><span class="cls-btn" onclick="clsList()">× 閉じる</span></div>`;
     let itms = [];
-    if (c === '📂') {
-        if (myFoods.length === 0) l.innerHTML += `<div style="padding:15px;text-align:center;color:#666;">My食品はまだありません。</div>`;
-        else itms = myFoods.map((x,i)=>({...x, name:x.N, isMy:true, i:i}));
-    } else {
-        const allItems = DB.map((x, i) => ({ ...x, name:x[1], isMy:false, i:i }));
-        if (c === '⭐') itms = allItems.filter(x => fav.includes(x.i)); else { itms = allItems.filter(x => x[0] === c); itms.sort((a, b) => (fav.includes(b.i) ? 1 : 0) - (fav.includes(a.i) ? 1 : 0)); }
-    }
+    if (c === '📂') { if (myFoods.length === 0) l.innerHTML += `<div style="padding:15px;text-align:center;color:#666;">My食品はまだありません。</div>`; else itms = myFoods.map((x,i)=>({...x, name:x.N, isMy:true, i:i})); } 
+    else { const allItems = DB.map((x, i) => ({ ...x, name:x[1], isMy:false, i:i })); if (c === '⭐') itms = allItems.filter(x => fav.includes(x.i)); else { itms = allItems.filter(x => x[0] === c); itms.sort((a, b) => (fav.includes(b.i) ? 1 : 0) - (fav.includes(a.i) ? 1 : 0)); } }
     itms.forEach(x => {
         const d = document.createElement('div'); d.className = 'f-btn'; d.innerHTML = `<span>${x.name}</span>`; d.onclick = () => x.isMy ? selMyFd(x.i) : selFd(x.i);
         const actBtn = document.createElement('span');
@@ -100,7 +83,7 @@ function regMyFood() {
     localStorage.setItem('tf_my', JSON.stringify(myFoods)); alert(`「${n}」をMy食品に登録しました！`);
 }
 
-function delMyFood(i) { if (!confirm(`「${myFoods[i].N}」を削除しますか？`)) return; myFoods.splice(i, 1); localStorage.setItem('tf_my', JSON.stringify(myFoods)); const btn = document.querySelector('.my-cat-btn'); shwList('📂', btn); }
+function delMyFood(i) { if (!confirm(`「${myFoods[i].N}」を削除しますか？`)) return; myFoods.splice(i, 1); localStorage.setItem('tf_my', JSON.stringify(myFoods)); shwList('📂', document.querySelector('.my-cat-btn')); }
 
 function mkBtn(lbl, v, par, subLbl = "") {
     const b = document.createElement('div'); b.className = 'a-btn'; const unit = DB[selIdx][3].includes('g') ? 'g' : '';
@@ -108,32 +91,28 @@ function mkBtn(lbl, v, par, subLbl = "") {
     b.onclick = () => { document.querySelectorAll('.a-btn').forEach(x => x.classList.remove('sel')); b.classList.add('sel'); updBd(v); }; par.appendChild(b);
 }
 
-// 手入力時、カロリーの余りからアルコールを逆算
 function updBd(v) {
     if (selIdx < 0) return; const d = DB[selIdx]; v = parseNum(v); let m = 1; if (d[3].includes('g')) { m = v / parseFloat(d[3]); } else { m = v; }
     document.getElementById('m-mul').value = parseFloat(m.toFixed(2)); 
     const P = d[4] * m, F = d[5] * m, C = d[6] * m; 
     let unitPfcCal = (d[4]*4) + (d[5]*9) + (d[6]*4);
     let unitA = (d[0].includes("酒") || d[7] > unitPfcCal + 10) ? Math.max(0, (d[7] - unitPfcCal) / 7) : 0;
-    let A = unitA * m;
-    const Cal = Math.round((P*4)+(F*9)+(C*4)+(A*7));
+    let A = unitA * m; const Cal = Math.round((P*4)+(F*9)+(C*4)+(A*7));
     document.getElementById('pv-bar').style.display = 'block'; const dispUnit = d[3].includes('g') ? 'g' : (d[3].includes('杯') ? '杯' : '個');
     document.getElementById('pv-name').textContent = `${d[1]} (${v}${dispUnit})`; 
     let aStr = (TG.alcMode && A > 0) ? ` A${A.toFixed(1)}` : "";
     document.getElementById('pv-stat').textContent = `${Cal}kcal (P${P.toFixed(1)} F${F.toFixed(1)} C${C.toFixed(1)}${aStr})`;
     document.getElementById('m-name').value = d[1]; document.getElementById('m-p').value = d[4]; document.getElementById('m-f').value = d[5]; document.getElementById('m-c').value = d[6]; 
-    document.getElementById('m-a').value = parseFloat(unitA.toFixed(1)); 
-    document.getElementById('m-cal').value = Cal;
+    document.getElementById('m-a').value = parseFloat(unitA.toFixed(1)); document.getElementById('m-cal').value = Cal;
 }
 
 function togBd() { const b = document.getElementById('reg-bd'); b.style.display = b.style.display === 'block' ? 'none' : 'block'; }
 function clsBd() { const bd = document.getElementById('reg-bd'); bd.style.display = 'none'; bd.classList.remove('editing'); editIdx = -1; document.getElementById('btn-reg').textContent = "リストに追加する"; }
-
 function openMan() { selIdx = -1; editIdx = -1; document.getElementById('btn-reg').textContent = "リストに追加する"; document.getElementById('amt-area').style.display = 'block'; document.getElementById('reg-bd').style.display = 'block'; document.getElementById('m-time').value = getAutoTime(); setTimeout(() => document.getElementById('reg-bd').scrollIntoView({ behavior: 'smooth' }), 100); }
 
 function calcM() {
     const p = parseNum(document.getElementById('m-p').value); const f = parseNum(document.getElementById('m-f').value); const c = parseNum(document.getElementById('m-c').value); const a = parseNum(document.getElementById('m-a').value); const m = parseNum(document.getElementById('m-mul').value) || 1;
-    const cal = Math.round((p * 4 + f * 9 + c * 4 + a * 7) * m); document.getElementById('m-cal').value = cal;
+    document.getElementById('m-cal').value = Math.round((p * 4 + f * 9 + c * 4 + a * 7) * m);
     if (selIdx < 0) document.getElementById('pv-name').textContent = document.getElementById('m-name').value;
 }
 
@@ -150,7 +129,7 @@ function addM() {
 function ren() {
     const tlArea = document.getElementById('timeline-area'); tlArea.innerHTML = ""; let totalCal = 0;
     const times = ["朝", "昼", "晩", "間食"]; const emojis = {"朝":"☀️", "昼":"☁️", "晩":"🌙", "間食":"☕"};
-    lst.forEach(x => { if (!times.includes(x.time)) { x.time = "間食"; } });
+    lst.forEach(x => { if (!times.includes(x.time)) x.time = "間食"; });
     times.forEach(t => {
         const items = lst.map((x, i) => ({...x, i})).filter(x => x.time === t); if (items.length === 0) return;
         let tCal=0, tP=0, tF=0, tC=0, tA=0; items.forEach(x => { tCal+=x.Cal; tP+=x.P; tF+=x.F; tC+=x.C; tA+=(x.A||0); totalCal+=x.Cal; });
@@ -210,24 +189,15 @@ function mkTgt() {
     const b = document.getElementById('tgt-btns'); b.innerHTML = "";
     [{v:1200,l:"女性小食"},{v:1600,l:"👩女性減量"},{v:2000,l:"👨男性減量"},{v:2400,l:"活動・増量"}].forEach(t => {
         const d = document.createElement('div'); d.className = 'tg-btn ' + (TG.cal === t.v ? 'act' : ''); d.innerHTML = `<span style="font-size:9px;color:#666">${t.l}</span><strong>${t.v}</strong>`;
-        d.onclick = () => { 
-            TG = { cal: t.v, ...calcPFC(t.v, TG.mode), label: t.l, mode: TG.mode, alcMode: TG.alcMode }; 
-            localStorage.setItem('tf_tg', JSON.stringify(TG)); 
-            if(document.getElementById('cust-cal')) document.getElementById('cust-cal').value = t.v; 
-            if(document.getElementById('pfc-mode')) document.getElementById('pfc-mode').value = TG.mode; 
-            upd(); mkTgt(); 
-        }; b.appendChild(d);
+        d.onclick = () => { TG = { cal: t.v, ...calcPFC(t.v, TG.mode), label: t.l, mode: TG.mode, alcMode: TG.alcMode }; localStorage.setItem('tf_tg', JSON.stringify(TG)); if(document.getElementById('cust-cal')) document.getElementById('cust-cal').value = t.v; if(document.getElementById('pfc-mode')) document.getElementById('pfc-mode').value = TG.mode; upd(); mkTgt(); }; b.appendChild(d);
     });
 }
-
 function toggleTgt() { const b = document.getElementById('tgt-btns'); const c = document.getElementById('cust-tgt'); const d = (b.style.display === 'grid'); b.style.display = d ? 'none' : 'grid'; c.style.display = d ? 'none' : 'flex'; }
-
 function calcPFC(c, m) {
     let p=0, f=0;
     if (m === "lowfat") { p = c * 0.3 / 4; f = c * 0.1 / 9; } else if (m === "muscle") { p = c * 0.4 / 4; f = c * 0.2 / 9; } else if (m === "keto") { p = c * 0.3 / 4; f = c * 0.6 / 9; } else { p = c * 0.3 / 4; f = c * 0.2 / 9; }
     return { p: p, f: f, c: (c - (p * 4 + f * 9)) / 4 };
 }
-
 function upd() {
     const t = { Cal: 0, P: 0, F: 0, C: 0, A: 0 }; lst.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; t.A += (x.A || 0); });
     document.getElementById('cur-cal').textContent = t.Cal; document.getElementById('cur-p').textContent = t.P.toFixed(0); document.getElementById('cur-f').textContent = t.F.toFixed(0); document.getElementById('cur-c').textContent = t.C.toFixed(0);
@@ -243,20 +213,13 @@ function upd() {
     if(document.getElementById('tgt-disp')) document.getElementById('tgt-disp').textContent = `${TG.cal}kcal [${modeName.split('(')[0]}] ▼`;
     if(document.getElementById('pfc-ratio-disp')) document.getElementById('pfc-ratio-disp').textContent = modeName;
 }
-
 function applyCust() {
-    let inputCal = parseNum(document.getElementById('cust-cal').value); const c = inputCal > 0 ? inputCal : TG.cal;
-    const selectedMode = document.getElementById('pfc-mode').value;
+    let inputCal = parseNum(document.getElementById('cust-cal').value); const c = inputCal > 0 ? inputCal : TG.cal; const selectedMode = document.getElementById('pfc-mode').value;
     TG = { cal: c, ...calcPFC(c, selectedMode), label: "カスタム", mode: selectedMode, alcMode: document.getElementById('alc-mode-chk').checked };
     localStorage.setItem('tf_tg', JSON.stringify(TG)); upd(); toggleTgt(); mkTgt(); 
 }
 
-function cpRes() { 
-    let t = `【${new Date().toLocaleDateString()}】\n`; 
-    lst.forEach(x => t += `${x.time ? `[${x.time}] ` : ''}${x.N} ${x.Cal}kcal\n`); 
-    navigator.clipboard.writeText(t).then(() => alert("コピー完了")); 
-}
-
+function cpRes() { let t = `【${new Date().toLocaleDateString()}】\n`; lst.forEach(x => t += `${x.time ? `[${x.time}] ` : ''}${x.N} ${x.Cal}kcal\n`); navigator.clipboard.writeText(t).then(() => alert("コピー完了")); }
 function importData(input) {
     const file = input.files[0]; if (!file) return; const reader = new FileReader();
     reader.onload = function(e) {
@@ -340,8 +303,7 @@ const forceStopMic = () => {
     }
 };
 document.addEventListener('visibilitychange', () => { if (document.hidden) forceStopMic(); });
-window.addEventListener('pagehide', forceStopMic);
-window.addEventListener('blur', forceStopMic);
+window.addEventListener('pagehide', forceStopMic); window.addEventListener('blur', forceStopMic);
 
 function showToast(msg) {
     let toast = document.getElementById('tama-toast');
@@ -350,9 +312,9 @@ function showToast(msg) {
 }
 
 window.openRecipe = function(keywords, type) {
-    const q = encodeURIComponent(keywords);
-    let url = "";
-    if(type === 'kurashiru') url = `https://www.kurashiru.com/search?query=${q}`;
+    const q = encodeURIComponent(keywords); let url = "";
+    if(type === 'delish') url = `https://delishkitchen.tv/search?q=${q}`;
+    if(type === 'nadia') url = `https://oceans-nadia.com/search?q=${q}`;
     if(type === 'youtube') url = `https://www.youtube.com/results?search_query=${q}+レシピ`;
     window.open(url, "_blank");
 };
@@ -429,11 +391,13 @@ async function sendTamaChat() {
 
         removeMsg(loadingId); const newMsgId = addChatMsg('bot', botReply);
 
+        // ★最強のレシピボタン3連
         if (recipeKeywords) {
             const msgEl = document.getElementById(newMsgId).querySelector('.text');
-            msgEl.innerHTML += `<br><br><div style="display:flex; gap:8px; width:100%; margin-top:8px;">
-                <div onclick="openRecipe('${recipeKeywords}', 'kurashiru')" style="cursor:pointer; flex:1; background-color:#FF9F43; color:#FFFFFF; padding:10px 0; border-radius:8px; font-weight:bold; font-size:12px; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.15);">🍳 クラシルで<br>レシピを見る</div>
-                <div onclick="openRecipe('${recipeKeywords}', 'youtube')" style="cursor:pointer; flex:1; background-color:#FF0000; color:#FFFFFF; padding:10px 0; border-radius:8px; font-weight:bold; font-size:12px; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.15);">▶️ YouTubeで<br>調理法を見る</div>
+            msgEl.innerHTML += `<br><br><div style="display:flex; flex-direction:column; gap:6px; width:100%; margin-top:8px;">
+                <div onclick="openRecipe('${recipeKeywords}', 'delish')" style="cursor:pointer; background-color:#FFB600; color:#FFFFFF; padding:8px; border-radius:8px; font-weight:bold; font-size:12px; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.1);">🍳 デリッシュキッチン で見る</div>
+                <div onclick="openRecipe('${recipeKeywords}', 'nadia')" style="cursor:pointer; background-color:#65C1A6; color:#FFFFFF; padding:8px; border-radius:8px; font-weight:bold; font-size:12px; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.1);">👨‍🍳 Nadia(プロのレシピ) で見る</div>
+                <div onclick="openRecipe('${recipeKeywords}', 'youtube')" style="cursor:pointer; background-color:#FF0000; color:#FFFFFF; padding:8px; border-radius:8px; font-weight:bold; font-size:12px; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.1);">▶️ YouTube で調理法を見る</div>
             </div>`;
         }
 
