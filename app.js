@@ -617,7 +617,6 @@ const gasUrl = "https://script.google.com/macros/s/AKfycbxfD_oYqqac1rG0U1Po9cWiH
 let recognition;
 let isRecording = false;
 
-// アプリがバックグラウンドに回った時にマイクを強制終了
 document.addEventListener('visibilitychange', () => {
     if (document.hidden && isRecording) {
         isRecording = false;
@@ -652,14 +651,20 @@ function showToast(msg) {
 }
 
 const generateAiPrompt = (foodName) => {
-    return `「${foodName}」の一般的なカロリーと、PFC（タンパク質・脂質・炭水化物）の数値を調べてください。\n\nまた、私が食事管理アプリにそのままコピペして記録できるよう、回答の最後に以下のフォーマットの〇〇に数値を埋めたテキストを【コピー用テキスト】として出力してください。\n\n${foodName}を食べたよ！カロリーは〇〇kcal、Pは〇〇g、Fは〇〇g、Cは〇〇gだって！`;
+    return `「${foodName}」の一般的なカロリーと、PFC（タンパク質・脂質・炭水化物）の数値を調べてください。\n\nまた、私が食事管理アプリにそのままコピペして記録できるよう、回答の最後に以下のフォーマットの〇〇に数値を埋めたテキストを、ワンタップでコピーできるように「マークダウンのコードブロック（\`\`\`）」で囲んで出力してください。\n\n\`\`\`\n${foodName}を食べたよ！カロリーは〇〇kcal、Pは〇〇g、Fは〇〇g、Cは〇〇gだって！\n\`\`\``;
 };
 
-window.copyPromptForAI = function(foodName) {
+window.openChatGPTAndCopy = function(foodName) {
     const text = generateAiPrompt(foodName);
+    
     const textArea = document.createElement("textarea");
     textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.top = '0';
+    textArea.style.left = '0';
+    textArea.style.opacity = '0';
     document.body.appendChild(textArea);
+    textArea.focus();
     textArea.select();
     try { document.execCommand('copy'); } catch (err) {}
     document.body.removeChild(textArea);
@@ -669,6 +674,10 @@ window.copyPromptForAI = function(foodName) {
     }
 
     showToast("🤖 質問文をコピーしたたま！\nそのまま貼り付けて聞いてね！");
+
+    setTimeout(() => {
+        window.open("https://chatgpt.com/", "_blank");
+    }, 300);
 };
 
 function toggleChat() {
@@ -774,7 +783,6 @@ async function sendTamaChat() {
 
     const loadingId = addChatMsg('bot', 'たまちゃん考え中...');
     
-    // 現在の摂取と目標PFC
     const currentCal = lst.reduce((a,b)=>a+b.Cal,0);
     const currentP = lst.reduce((a,b)=>a+b.P,0);
     const currentF = lst.reduce((a,b)=>a+b.F,0);
@@ -783,7 +791,6 @@ async function sendTamaChat() {
     
     let historyText = chatHistory.map(m => `${m.role === 'user' ? 'あなた' : 'たまちゃん'}: ${m.text}`).join('\n');
     
-    // ▼ 追加：ユーザーの「お気に入り」「My食品」をカンペとして渡す ▼
     let userPrefText = "";
     if (myFoods && myFoods.length > 0) {
         userPrefText += `\n【ユーザーのMy食品（よく食べる・好きなもの）】\n${myFoods.map(x => `- ${x.N} (P${x.P} F${x.F} C${x.C} ${x.Cal}kcal)`).join('\n')}\n`;
@@ -906,13 +913,13 @@ ${text}
             const msgEl = document.getElementById(newMsgId).querySelector('.text');
             msgEl.innerHTML += `<br><br>
                 <div style="display:flex; gap:10px; width:100%; margin-top:8px;">
-                    <a href="https://chatgpt.com/" onclick="copyPromptForAI('${unknownFood}')" style="flex:1; background-color:#10A37F; color:#FFFFFF; padding:12px 0; border-radius:10px; font-weight:600; font-size:13px; text-decoration:none; text-align:center; box-shadow:0 2px 5px rgba(0,0,0,0.15); display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.4; box-sizing:border-box; transition:opacity 0.2s;">
+                    <div onclick="openChatGPTAndCopy('${unknownFood}')" style="cursor:pointer; flex:1; background-color:#10A37F; color:#FFFFFF; padding:12px 0; border-radius:10px; font-weight:600; font-size:13px; text-decoration:none; text-align:center; box-shadow:0 2px 5px rgba(0,0,0,0.15); display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.4; box-sizing:border-box; transition:opacity 0.2s;">
                         <div style="display:flex; align-items:center; gap:6px;">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M22.28 10.51a6.6 6.6 0 0 0-1.63-7.1 6.62 6.62 0 0 0-7.04-1.6 6.59 6.59 0 0 0-8.91 3.52 6.61 6.61 0 0 0-1.57 7.15 6.6 6.6 0 0 0 1.63 7.09 6.61 6.61 0 0 0 7.03 1.6 6.59 6.59 0 0 0 8.92-3.53 6.62 6.62 0 0 0 1.57-7.13zm-8.87 9.87a4.57 4.57 0 0 1-3.23-1.32l.24-.14 4.54-2.62a1.05 1.05 0 0 0 .52-.91v-5.26l1.79 1.03a4.59 4.59 0 0 1 1.7 5.91 4.58 4.58 0 0 1-5.56 3.31zm-7.66-2.5a4.59 4.59 0 0 1-1.3-3.28l.2.16 4.55 2.63a1.04 1.04 0 0 0 1.05 0l4.55-2.63-.9-1.55-4.54 2.62a2.66 2.66 0 0 1-2.66 0L4.1 11.66a4.58 4.58 0 0 1 1.65-5.38zm7.5-12.78a4.58 4.58 0 0 1 3.23 1.33l-.24.14-4.54 2.62a1.04 1.04 0 0 0-.52.9v5.27l-1.8-1.04A4.59 4.59 0 0 1 8.2 8.52a4.58 4.58 0 0 1 5.06-3.41zm1.25 5.86-1.8-1.04v-3.1a4.58 4.58 0 0 1 6.85-2.1L16.2 6.5v.01l-4.54 2.62a2.66 2.66 0 0 1-2.67 0l-2.6-1.5 2.6-4.5a4.59 4.59 0 0 1 5.51-1.6zm4.6 7.42a4.59 4.59 0 0 1 1.3 3.28l-.2-.16-4.55-2.63a1.04 1.04 0 0 0-1.05 0l-4.54 2.63.9 1.55 4.54-2.62a2.66 2.66 0 0 1 2.66 0l2.58 1.5A4.58 4.58 0 0 1 19.1 18.4zM12 14.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
                             <span>ChatGPT</span>
                         </div>
                         <span style="font-size:9.5px; font-weight:400; margin-top:3px; opacity:0.9;">(質問を自動コピー)</span>
-                    </a>
+                    </div>
                     
                     <a href="https://www.google.com/search?q=${encodeURIComponent(unknownFood + ' カロリー PFC')}" target="_blank" style="flex:1; background-color:#FFFFFF; color:#3C4043; border:1px solid #DADCE0; padding:12px 0; border-radius:10px; font-weight:600; font-size:13px; text-decoration:none; text-align:center; box-shadow:0 2px 5px rgba(0,0,0,0.05); display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.4; box-sizing:border-box; transition:background-color 0.2s;">
                         <div style="display:flex; align-items:center; gap:6px;">
