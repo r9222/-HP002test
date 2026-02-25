@@ -1,4 +1,4 @@
-// app.js : アプリの脳みそ (iOSマイクバグ＆手入力アルコール抽出対応・完全修正版)
+// app.js : アプリの脳みそ (PFC計算バグ＆iOSマイク＆アルコール完全修正版)
 
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std", alcMode: false }; 
 let lst = []; let fav = []; let myFoods = []; let hist = []; let bodyData = []; let chatHistory = []; let selIdx = -1; let editIdx = -1; 
@@ -108,7 +108,7 @@ function mkBtn(lbl, v, par, subLbl = "") {
     b.onclick = () => { document.querySelectorAll('.a-btn').forEach(x => x.classList.remove('sel')); b.classList.add('sel'); updBd(v); }; par.appendChild(b);
 }
 
-// ★修正: データベースの「カロリーの余り」から、隠れたアルコール量を自動で抽出する処理
+// 手入力時、カロリーの余りからアルコールを逆算
 function updBd(v) {
     if (selIdx < 0) return; const d = DB[selIdx]; v = parseNum(v); let m = 1; if (d[3].includes('g')) { m = v / parseFloat(d[3]); } else { m = v; }
     document.getElementById('m-mul').value = parseFloat(m.toFixed(2)); 
@@ -327,7 +327,6 @@ function exportData() {
 const gasUrl = "https://script.google.com/macros/s/AKfycbxfD_oYqqac1rG0U1Po9cWiHGq1jslASe2GQhEmVtQj8RjDTeIvVtHyA8tpeKHQhzoN/exec";
 let recognition; let isRecording = false;
 
-// ★修正: iOSでマイクが確実に切れるように強制停止処理を強化
 const forceStopMic = () => {
     if (isRecording) { 
         isRecording = false; 
