@@ -7,7 +7,7 @@
 <title>たまフィットPFC</title>
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
 <style>
-/* ▼▼▼ デザイン設定 (Version 8 完全復元) ▼▼▼ */
+/* ▼▼▼ デザイン設定 (モダンUI版) ▼▼▼ */
 :root {
     --th: #f55a94;       /* ピンク */
     --bg: #fdf2f4;       /* 薄いピンク背景 */
@@ -136,14 +136,88 @@ label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; 
 .l-btn { border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold; color: #fff; }
 .b-re { background: var(--add); } .b-ed { background: var(--ed); } .b-del { background: var(--del); }
 
-/* フッターボタン */
-.ft-btns { margin-top: 20px; display: grid; gap: 10px; }
-.b-cp { background: #333; color: #fff; width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: bold; }
-.b-rst { background: #dfe6e9; width: 100%; padding: 10px; border-radius: 8px; border: none; font-weight: bold; color: #333; }
-.b-hst { background: #f0f2f5; color: var(--th); width: 100%; padding: 10px; border: 2px solid var(--th); border-radius: 8px; font-weight: bold; }
+/* ▼▼▼ 新規：アクションタイルレイアウト (モダンUI) ▼▼▼ */
+.action-grid {
+    display: grid;
+    /* 画面サイズに合わせて自動で折り返し。スマホは3列か2列、PCは5列になる */
+    grid-template-columns: repeat(auto-fit, minmax(95px, 1fr));
+    gap: 12px;
+    margin-top: 30px;
+    margin-bottom: 20px;
+}
+@media (max-width: 360px) {
+    .action-grid { grid-template-columns: repeat(2, 1fr); }
+}
 
-/* 履歴詳細・グラフ */
-#hist-area { display: none; margin-top: 5px; padding-bottom: 20px; grid-column: 1 / -1; }
+.action-tile {
+    background: #fff;
+    border-radius: 16px;
+    padding: 15px 5px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    cursor: pointer;
+    border: 1px solid #eaeaea;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    aspect-ratio: 1 / 1;
+    position: relative;
+    overflow: hidden;
+    user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.action-tile:active {
+    transform: scale(0.92);
+    background: #fafafa;
+}
+.action-tile .icon {
+    font-size: 26px;
+    margin-bottom: 6px;
+}
+.action-tile .label {
+    font-size: 11px;
+    font-weight: 900;
+    color: #555;
+    line-height: 1.3;
+}
+/* 各タイルのアクセントカラー（下線） */
+.action-tile::after {
+    content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 4px;
+}
+.t-copy::after { background: #34495e; }
+.t-reset::after { background: #e74c3c; }
+.t-hist::after { background: var(--th); }
+.t-graph::after { background: #f39c12; }
+.t-body::after { background: var(--body); }
+
+/* ▼▼▼ 展開エリア共通デザイン ▼▼▼ */
+.expand-area {
+    display: none; 
+    background: #fff; 
+    padding: 18px 15px; 
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06); 
+    margin-bottom: 25px; 
+    border: 2px solid #ddd;
+    animation: slideDown 0.3s ease;
+    position: relative;
+}
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.expand-close {
+    position: absolute; top: 12px; right: 12px; 
+    background: #f0f2f5; color: #666; font-size: 10px; font-weight: bold; 
+    padding: 4px 10px; border-radius: 12px; cursor: pointer;
+}
+
+/* 履歴詳細・グラフ・体組成 個別デザイン */
+#hist-area { border-color: var(--th); }
+.graph-sec { border-color: #f39c12; }
+.body-sec { border-color: var(--body); }
+
 .h-card { background: #fff; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.03); overflow: hidden; }
 .h-summary { padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; background: #fff; }
 .h-btns { display: flex; gap: 5px; align-items: center; }
@@ -152,7 +226,6 @@ label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; 
 .h-detail { display: none; background: #fafafa; border-top: 1px dashed #eee; padding: 10px; }
 .hf-row { display: flex; justify-content: space-between; font-size: 12px; padding: 6px 0; border-bottom: 1px solid #eee; color: #444; }
 
-.graph-sec { display: none; background: #fff; padding: 15px; border-radius: 12px; margin-top: 5px; border: 1px solid #ddd; grid-column: 1 / -1; }
 .g-btns { display: flex; justify-content: center; gap: 10px; margin-bottom: 10px; }
 .g-btn { padding: 5px 15px; border: 1px solid #ccc; border-radius: 20px; background: #eee; cursor: pointer; font-size: 12px; }
 .g-btn.act { background: var(--th); color: #fff; border-color: var(--th); }
@@ -167,10 +240,7 @@ label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; 
 .leg-box { width: 10px; height: 10px; border-radius: 2px; }
 .stat-row { text-align: center; font-size: 13px; margin-top: 30px; font-weight: bold; color: #555; padding: 10px; background: #f9f9f9; border-radius: 8px; }
 
-/* ボディマネージャー */
-.body-sec { margin-top: 20px; background: #fff; border-radius: 12px; border: 2px solid var(--body); padding: 15px; }
-.body-head { text-align: center; font-weight: bold; color: var(--body); margin-bottom: 10px; cursor: pointer; }
-.b-toggle { display: flex; justify-content: center; gap: 10px; margin-bottom: 10px; }
+.b-toggle { display: flex; justify-content: center; gap: 10px; margin-bottom: 10px; margin-top: 15px; }
 .b-tog-btn { padding: 6px 12px; border: 1px solid var(--body); border-radius: 20px; color: var(--body); background: #fff; font-size: 12px; cursor: pointer; }
 .b-tog-btn.act { background: var(--body); color: #fff; }
 .body-legend-box { font-size: 11px; margin-bottom: 10px; background: #f9f9f9; padding: 8px; border-radius: 6px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
@@ -184,6 +254,7 @@ label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; 
 .btn-body-rec { width: 100%; background: var(--body); color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: bold; margin-top: 10px; cursor: pointer; }
 .b-hist-row { display: flex; justify-content: space-between; padding: 12px 8px; border-bottom: 1px solid #eee; font-size: 12px; cursor: pointer; }
 .b-del-btn { background: #ccc; color: #fff; border: none; padding: 4px 10px; border-radius: 4px; margin-left: 10px; cursor: pointer; }
+
 /* SVG関連 */
 svg { width: 100%; height: 100%; overflow: visible; }
 .g-line { fill: none; stroke-width: 2; stroke-linecap: round; }
@@ -209,8 +280,7 @@ svg { width: 100%; height: 100%; overflow: visible; }
 .m-save { background: var(--th); color: #fff; }
 .m-cancel { background: #eee; color: #333; }
 
-/* ▼▼▼ チャット機能デザイン (Version 10) ▼▼▼ */
-/* ▼ 右下のたまちゃんチャットボタンを完全な丸に変更 ▼ */
+/* ▼▼▼ チャット機能デザイン ▼▼▼ */
 #tama-chat-btn {
     position: fixed; bottom: 20px; right: 20px; z-index: 9999;
     display: flex; align-items: center; justify-content: center;
@@ -219,75 +289,38 @@ svg { width: 100%; height: 100%; overflow: visible; }
     padding: 0; border-radius: 50%;
     box-shadow: 0 4px 15px rgba(0,0,0,0.3);
     cursor: pointer; transition: all 0.2s ease;
-    
-    /* Androidの辞書（テキスト選択）防止 */
-    user-select: none;
-    -webkit-user-select: none;
-    -webkit-touch-callout: none;
+    user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
-
 #tama-chat-btn img {
     width: 40px; height: 40px; border-radius: 50%;
-    margin-right: 0;
     border: 2px solid white; background-color: #fff;
-    pointer-events: none; /* 画像自体の長押しも防止 */
+    pointer-events: none;
 }
-
 #tama-chat-btn:active { transform: scale(0.95); }
 
-/* ▼ グローバルマイクボタン (案A) ▼ */
 #global-mic-btn {
-    position: fixed;
-    bottom: 25px; 
-    left: 50%;
-    transform: translateX(-50%);
+    position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%);
     background: linear-gradient(135deg, #ff4757, #ff6b81);
-    color: #fff;
-    padding: 12px 30px;
-    border-radius: 30px;
+    color: #fff; padding: 12px 30px; border-radius: 30px;
     box-shadow: 0 4px 15px rgba(255, 71, 87, 0.4);
-    font-weight: bold;
-    font-size: 15px;
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-    z-index: 9998;
-    transition: all 0.2s ease;
-    
-    /* Androidの辞書（テキスト選択）防止 */
-    user-select: none;
-    -webkit-user-select: none;
-    -webkit-touch-callout: none;
+    font-weight: bold; font-size: 15px; display: flex; align-items: center;
+    cursor: pointer; z-index: 9998; transition: all 0.2s ease;
+    user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
-
-#global-mic-btn:active {
-    transform: translateX(-50%) scale(0.95);
-}
-
-/* 録音中のアニメーション */
-#global-mic-btn.recording {
-    animation: pulse-global 1.5s infinite;
-    background: #ff4757;
-}
-
+#global-mic-btn:active { transform: translateX(-50%) scale(0.95); }
+#global-mic-btn.recording { animation: pulse-global 1.5s infinite; background: #ff4757; }
 @keyframes pulse-global {
     0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7); }
     70% { box-shadow: 0 0 0 15px rgba(255, 71, 87, 0); }
     100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
 }
-
-@media (max-width: 380px) {
-    #global-mic-btn {
-        padding: 10px 20px;
-        font-size: 14px;
-    }
-}
+@media (max-width: 380px) { #global-mic-btn { padding: 10px 20px; font-size: 14px; } }
 
 #tama-chat-window {
     position: fixed; bottom: 85px; right: 20px;
     width: 350px; height: 500px; max-height: 70vh;
-    background-color: #fff; border-radius: 12px;
-    box-shadow: 0 5px 25px rgba(0,0,0,0.2); z-index: 10000;
+    background-color: #fff; border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 10000;
     display: none; flex-direction: column; overflow: hidden; border: 1px solid #ddd;
 }
 .chat-header {
@@ -301,51 +334,32 @@ svg { width: 100%; height: 100%; overflow: visible; }
 }
 .msg { display: flex; align-items: flex-end; gap: 10px; max-width: 100%; }
 .msg.user { flex-direction: row-reverse; }
-.msg .icon img {
-    width: 40px; height: 40px; border-radius: 50%;
-    border: 2px solid #fff; background: #fff;
-}
+.msg .icon img { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #fff; background: #fff; }
 .msg.user .icon { display: none; }
 .msg .text {
     background: #fff; padding: 10px 14px; border-radius: 18px; border-top-left-radius: 2px;
-    font-size: 0.95rem; line-height: 1.5; box-shadow: 0 1px 2px rgba(0,0,0,0.1); max-width: 80%; white-space: pre-wrap;
+    font-size: 0.95rem; line-height: 1.5; box-shadow: 0 1px 2px rgba(0,0,0,0.1); max-width: 80%; white-space: pre-wrap; word-break: break-word;
 }
-.msg.user .text {
-    background: var(--th); color: white; border-top-left-radius: 18px; border-top-right-radius: 2px;
-}
+.msg.user .text { background: var(--th); color: white; border-top-left-radius: 18px; border-top-right-radius: 2px; }
 
-/* ▼ マイクボタン追加によるレイアウト調整 ▼ */
-.chat-footer {
-    padding: 10px; background: #fff; border-top: 1px solid #eee; display: flex; gap: 8px; align-items: center;
-}
-/* マイクボタンのデザイン */
+.chat-footer { padding: 10px; background: #fff; border-top: 1px solid #eee; display: flex; gap: 8px; align-items: center; }
 #mic-btn {
     background: #f0f2f5; color: #555; border-radius: 50%; width: 40px; height: 40px; border: none;
     display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer;
     flex-shrink: 0; transition: all 0.3s ease;
 }
-/* 録音中のマイクボタンアニメーション（赤く光る） */
-#mic-btn.recording {
-    background: #ff4757; color: white;
-    animation: pulse 1.5s infinite;
-}
+#mic-btn.recording { background: #ff4757; color: white; animation: pulse 1.5s infinite; }
 @keyframes pulse {
     0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7); }
     70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 71, 87, 0); }
     100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
 }
-
-#chat-input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 20px; outline: none; }
+#chat-input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 20px; outline: none; font-size: 14px; }
 #chat-input:disabled { background-color: #f9f9f9; color: #999; cursor: not-allowed; }
-
-.chat-footer #chat-send {
-    padding: 0 16px; height: 40px; border-radius: 20px; background: var(--th); color: white; font-weight: bold; border: none; cursor: pointer; transition: 0.3s;
-}
+.chat-footer #chat-send { padding: 0 16px; height: 40px; border-radius: 20px; background: var(--th); color: white; font-weight: bold; border: none; cursor: pointer; transition: 0.3s; }
 .chat-footer #chat-send:disabled { background-color: #ccc; cursor: not-allowed; }
 
-@media (max-width: 600px) {
-    #tama-chat-window { width: 92%; right: 4%; bottom: 85px; }
-}
+@media (max-width: 600px) { #tama-chat-window { width: 92%; right: 4%; bottom: 85px; } }
 </style>
 </head>
 <body>
@@ -381,6 +395,7 @@ svg { width: 100%; height: 100%; overflow: visible; }
             <span style="font-size:10px;color:#666">自由な値とバランスを設定</span>
         </div>
     </div>
+    
     <div class="dash">
         <div class="dash-t">今日の目標 <span id="pfc-ratio-disp">(3:2:5)</span></div>
         <div class="mtr"><div class="mtr-l"><span>Cal</span><span id="rem-cal" class="rem"></span></div><div class="bar-bg"><div id="bar-cal" class="bar"></div></div></div>
@@ -388,6 +403,7 @@ svg { width: 100%; height: 100%; overflow: visible; }
         <div class="mtr"><div class="mtr-l"><span>F</span><span id="rem-f" class="rem"></span></div><div class="bar-bg"><div id="bar-f" class="bar"></div></div></div>
         <div class="mtr"><div class="mtr-l"><span>C</span><span id="rem-c" class="rem"></span></div><div class="bar-bg"><div id="bar-c" class="bar"></div></div></div>
     </div>
+    
     <div class="inp-sec">
         <div class="s-box"><span class="s-icon">🔍</span><input type="text" class="s-inp" id="s-inp" placeholder="検索" oninput="filterF()"><div class="s-res" id="s-res"></div></div>
         <label>1. カテゴリを選ぶ</label>
@@ -419,59 +435,80 @@ svg { width: 100%; height: 100%; overflow: visible; }
             <button id="btn-reg" class="btn-add" onclick="addM()">リストに追加する</button>
         </div>
     </div>
+    
     <button class="my-manual-btn" onclick="openMan()">▼ 完全手入力・My食品登録</button>
-    <h3 style="color:var(--th);text-align:center;">今日の記録</h3>
+    <h3 style="color:var(--th);text-align:center; margin-top:25px;">今日の記録</h3>
     <ul class="f-list" id="f-list-ul"></ul>
     <div style="text-align:right;font-size:18px;">合計: <span id="tot-cal" style="color:var(--th);font-weight:bold;">0</span> kcal</div>
     
-    <div class="ft-btns">
-        <button class="b-cp" onclick="cpRes()">📋 結果をテキストにコピー</button>
-        <button class="b-rst" onclick="rst()">📅 記録を保存してリセット</button>
-        
-        <button class="b-hst" onclick="togHist()">📅 履歴を見る</button>
-        <div id="hist-area"><p style="text-align:center;font-weight:bold;">【過去の記録】</p><div id="h-list"></div></div>
-        
-        <button class="b-hst" style="background:#fff;border-color:#666;color:#666" onclick="togGraph()">📊 統計・グラフ</button>
-        <div id="graph-area" class="graph-sec">
-            <div class="g-btns">
-                <button class="g-btn act" onclick="drawGraph('week',this)">週間</button>
-                <button class="g-btn" onclick="drawGraph('month',this)">月間</button>
-            </div>
-            <div class="graph-legend">
-                <div class="leg-item"><div class="leg-box seg-p"></div>P</div>
-                <div class="leg-item"><div class="leg-box seg-f"></div>F</div>
-                <div class="leg-item"><div class="leg-box seg-c"></div>C</div>
-            </div>
-            <div id="chart-box" class="chart-box"></div>
-            <div id="stat-txt" class="stat-row">グラフの棒をタップで詳細表示</div>
+    <div class="action-grid">
+        <div class="action-tile t-copy" onclick="cpRes()">
+            <div class="icon">📋</div>
+            <div class="label">結果を<br>コピー</div>
+        </div>
+        <div class="action-tile t-reset" onclick="rst()">
+            <div class="icon">🔄</div>
+            <div class="label">保存して<br>リセット</div>
+        </div>
+        <div class="action-tile t-hist" onclick="togHist()">
+            <div class="icon">📅</div>
+            <div class="label">過去の<br>履歴</div>
+        </div>
+        <div class="action-tile t-graph" onclick="togGraph()">
+            <div class="icon">📊</div>
+            <div class="label">統計・<br>グラフ</div>
+        </div>
+        <div class="action-tile t-body" onclick="toggleBody()">
+            <div class="icon">📉</div>
+            <div class="label">体組成・<br>管理</div>
         </div>
     </div>
 
-    <div class="body-sec">
-        <div class="body-head" onclick="toggleBody()">📉 体組成・ボディメイク ▼</div>
-        <div id="body-content" style="display:none;">
-            <div class="b-toggle">
-                <div class="b-tog-btn act" onclick="drawBodyGraph('A', this)">モードA<br>(体重・脂肪率・ウエスト)</div>
-                <div class="b-tog-btn" onclick="drawBodyGraph('B', this)">モードB<br>(除脂肪・脂肪量)</div>
-            </div>
-            <div id="body-legend" class="body-legend-box"></div>
-            
-            <div id="body-chart-area" class="body-graph-box"></div>
-            <div id="body-pop" class="g-pop"></div>
-            
-            <div class="body-inp-grid">
-                <div class="body-inp-item"><span>日付</span><input type="date" id="b-date"></div>
-                <div class="body-inp-item"><span>体重(kg)</span><input type="text" inputmode="decimal" id="b-weight" placeholder="60.0"></div>
-                <div class="body-inp-item"><span>体脂肪率(%)</span><input type="text" inputmode="decimal" id="b-fat" placeholder="20.0"></div>
-                <div class="body-inp-item"><span>ウエスト(cm)</span><input type="text" inputmode="decimal" id="b-waist" placeholder="70.0"></div>
-            </div>
-            <button class="btn-body-rec" onclick="saveBody()">記録する</button>
-            <p style="font-size:10px;color:#666;text-align:center;">※入力は任意。体脂肪率を入れるとモードBが計算されます。</p>
-            
-            <div style="margin-top:20px;border-top:1px dashed #ccc;padding-top:10px;">
-                <div style="text-align:center;font-size:12px;color:#666;margin-bottom:5px;">履歴一覧 (タップで修正)</div>
-                <div id="body-hist-list" style="max-height:150px;overflow-y:auto;background:#f9f9f9;border-radius:8px;"></div>
-            </div>
+    <div id="hist-area" class="expand-area">
+        <div class="expand-close" onclick="this.parentElement.style.display='none'">✕ 閉じる</div>
+        <p style="text-align:center;font-weight:bold;color:var(--th);margin-top:0;">【過去の記録】</p>
+        <div id="h-list"></div>
+    </div>
+    
+    <div id="graph-area" class="expand-area graph-sec">
+        <div class="expand-close" onclick="this.parentElement.style.display='none'">✕ 閉じる</div>
+        <div class="g-btns" style="margin-top:10px;">
+            <button class="g-btn act" onclick="drawGraph('week',this)">週間</button>
+            <button class="g-btn" onclick="drawGraph('month',this)">月間</button>
+        </div>
+        <div class="graph-legend">
+            <div class="leg-item"><div class="leg-box seg-p"></div>P</div>
+            <div class="leg-item"><div class="leg-box seg-f"></div>F</div>
+            <div class="leg-item"><div class="leg-box seg-c"></div>C</div>
+        </div>
+        <div id="chart-box" class="chart-box"></div>
+        <div id="stat-txt" class="stat-row">グラフの棒をタップで詳細表示</div>
+    </div>
+
+    <div id="body-content" class="expand-area body-sec">
+        <div class="expand-close" onclick="this.parentElement.style.display='none'">✕ 閉じる</div>
+        <div style="text-align:center; font-weight:bold; color:var(--body); margin-bottom:10px;">📉 体組成・ボディメイク</div>
+        <div class="b-toggle">
+            <div class="b-tog-btn act" onclick="drawBodyGraph('A', this)">モードA<br>(体重・脂肪率・ウエスト)</div>
+            <div class="b-tog-btn" onclick="drawBodyGraph('B', this)">モードB<br>(除脂肪・脂肪量)</div>
+        </div>
+        <div id="body-legend" class="body-legend-box"></div>
+        
+        <div id="body-chart-area" class="body-graph-box"></div>
+        <div id="body-pop" class="g-pop"></div>
+        
+        <div class="body-inp-grid">
+            <div class="body-inp-item"><span>日付</span><input type="date" id="b-date"></div>
+            <div class="body-inp-item"><span>体重(kg)</span><input type="text" inputmode="decimal" id="b-weight" placeholder="60.0"></div>
+            <div class="body-inp-item"><span>体脂肪率(%)</span><input type="text" inputmode="decimal" id="b-fat" placeholder="20.0"></div>
+            <div class="body-inp-item"><span>ウエスト(cm)</span><input type="text" inputmode="decimal" id="b-waist" placeholder="70.0"></div>
+        </div>
+        <button class="btn-body-rec" onclick="saveBody()">記録する</button>
+        <p style="font-size:10px;color:#666;text-align:center;margin-top:5px;">※入力は任意。体脂肪率を入れるとモードBが計算されます。</p>
+        
+        <div style="margin-top:20px;border-top:1px dashed #ccc;padding-top:10px;">
+            <div style="text-align:center;font-size:12px;color:#666;margin-bottom:5px;">履歴一覧 (タップで修正)</div>
+            <div id="body-hist-list" style="max-height:150px;overflow-y:auto;background:#f9f9f9;border-radius:8px;"></div>
         </div>
     </div>
 
@@ -487,9 +524,10 @@ svg { width: 100%; height: 100%; overflow: visible; }
             <summary class="info-sum">🔔 アップデート履歴</summary>
             <div class="info-con">
                 <ul>
-                    <li><strong>Ver 4.1 (Latest)</strong><span class="ver-badge">最新</span><br>
-                    ・✨ 🎙️ 音声入力（マイク機能）に対応しました！<br>
-                    ・✨ たまちゃんAIが最新のモデル(GAS経由)に進化しました<br>
+                    <li><strong>Ver 5.0 (Latest)</strong><span class="ver-badge">最新</span><br>
+                    ・✨ プロの食事指導！たまちゃんAIが専属トレーナーに進化<br>
+                    ・✨ デザインを最新のタイル型UIに一新<br>
+                    ・✨ マイクのバックグラウンド暴走を修正<br>
                     </li>
                 </ul>
             </div>
@@ -531,7 +569,7 @@ svg { width: 100%; height: 100%; overflow: visible; }
     <div class="chat-body" id="chat-messages">
         <div class="msg bot">
             <div class="icon"><img src="new_tama.png"></div>
-            <div class="text">調子はどうたま？<br>食事の相談や、今のPFCバランスについて何でも聞いてくれたま！</div>
+            <div class="text">調子はどうたま？<br>食事の記録も、次のご飯の相談も、何でも聞いてくれたま！</div>
         </div>
     </div>
     <div class="chat-footer">
