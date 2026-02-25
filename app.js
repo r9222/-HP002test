@@ -1,4 +1,4 @@
-// app.js : アプリの脳みそ (タイムライン＆酒飲みモードPFCA・完全デバッグ版)
+// app.js : アプリの脳みそ (タイムライン＆酒飲みモードPFCA・完全デバッグ＆欠落復元版)
 
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std", alcMode: false }; 
 let lst = []; 
@@ -251,7 +251,7 @@ function addM() {
     window.scrollTo(0, 0); 
 }
 
-// ★幽霊アイテム防止バグ修正
+// 幽霊アイテム防止バグ修正
 function ren() {
     const tlArea = document.getElementById('timeline-area');
     tlArea.innerHTML = "";
@@ -395,7 +395,7 @@ function filterF() {
     });
 }
 
-// ★修正: プリセットボタンを押した時にも、各種設定を完全に同期させる
+// プリセットボタンを押した時にも、各種設定を完全に同期させる
 function mkTgt() {
     const b = document.getElementById('tgt-btns'); b.innerHTML = "";
     [{v:1200,l:"女性小食"},{v:1600,l:"👩女性減量"},{v:2000,l:"👨男性減量"},{v:2400,l:"活動・増量"}].forEach(t => {
@@ -422,7 +422,7 @@ function calcPFC(c) {
     return { p: p, f: f, c: (c - (p * 4 + f * 9)) / 4 };
 }
 
-// ★修正: 小数の丸め処理と、タイトルの完全同期
+// 小数の丸め処理と、タイトルの完全同期
 function upd() {
     const t = { Cal: 0, P: 0, F: 0, C: 0, A: 0 }; 
     lst.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; t.A += (x.A || 0); });
@@ -444,7 +444,7 @@ function upd() {
             tx.className = 'rem ' + (r < 0 ? 'ov' : ''); 
             tx.textContent = r < 0 ? `+${Math.abs(r).toFixed(0)}${u}` : `残${r.toFixed(0)}${u}`;
         }
-        // ★修正: 分母の目標数値を丸めて表示（44.4444...を防止）
+        // 分母の目標数値を丸めて表示（44.4444...を防止）
         if(tbox) tbox.textContent = `${v.toFixed(0)} / ${Math.round(tg)}${u}`;
     };
     
@@ -456,7 +456,7 @@ function upd() {
         if(tboxA) tboxA.textContent = `${t.A.toFixed(1)}g`;
     }
     
-    // ★修正: タイトルの完全同期（ローファット等を選んだらタイトルもちゃんと変わる）
+    // タイトルの完全同期（ローファット等を選んだらタイトルもちゃんと変わる）
     const modeNames = { std: "標準(3:2:5)", lowfat: "ローファット(3:1:6)", muscle: "筋肥大(4:2:4)", keto: "ケト(3:6:1)" };
     const modeName = modeNames[TG.mode] || "カスタム";
     
@@ -464,7 +464,7 @@ function upd() {
     if(document.getElementById('pfc-ratio-disp')) document.getElementById('pfc-ratio-disp').textContent = modeName;
 }
 
-// ★修正: カロリー空欄で設定を押したときに、2000に戻らないようにする
+// カロリー空欄で設定を押したときに、2000に戻らないようにする
 function applyCust() {
     let inputCal = parseNum(document.getElementById('cust-cal').value);
     const c = inputCal > 0 ? inputCal : TG.cal;
@@ -576,6 +576,21 @@ function drawBodyGraph(mode, btn) {
         const endTxt = document.createElementNS("http://www.w3.org/2000/svg", "text"); endTxt.setAttribute("x", 280); endTxt.setAttribute("y", 148); endTxt.setAttribute("class", "g-label"); endTxt.setAttribute("text-anchor", "end"); endTxt.textContent = dataPoints[dataPoints.length-1].date.slice(5); svg.appendChild(endTxt);
     }
     box.appendChild(svg);
+}
+
+// ★復活: データ書き出し機能
+function exportData() {
+    const data = {
+        dat: localStorage.getItem('tf_dat'), tg: localStorage.getItem('tf_tg'),
+        fav: localStorage.getItem('tf_fav'), my: localStorage.getItem('tf_my'),
+        hist: localStorage.getItem('tf_hist'), date: localStorage.getItem('tf_date'),
+        body: localStorage.getItem('tf_body')
+    };
+    const blob = new Blob([JSON.stringify(data)], {type: "text/json"});
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `pfc_backup_${new Date().toISOString().slice(0,10)}.json`;
+    link.click();
 }
 
 const gasUrl = "https://script.google.com/macros/s/AKfycbxfD_oYqqac1rG0U1Po9cWiHGq1jslASe2GQhEmVtQj8RjDTeIvVtHyA8tpeKHQhzoN/exec";
@@ -756,3 +771,11 @@ function addChatMsg(role, text) {
     box.appendChild(div); box.scrollTop = box.scrollHeight; return id;
 }
 function removeMsg(id) { const el = document.getElementById(id); if(el) el.remove(); }
+
+// ★復活: コンテキスト生成用関数
+function getAppContextStr() {
+    let t = { Cal: 0, P: 0, F: 0, C: 0 };
+    lst.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; });
+    const remCal = TG.cal - t.Cal;
+    return `現在の摂取: ${t.Cal}kcal (残り ${remCal}kcal)\n今日食べたもの: ${lst.map(x => x.N).join(', ') || 'なし'}`;
+}
