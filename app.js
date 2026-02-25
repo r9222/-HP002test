@@ -1,4 +1,4 @@
-// app.js : アプリの脳みそ (タイムライン＆酒飲みモード・レシピ連携機能追加版)
+// app.js : アプリの脳みそ (iOSマイクバグ＆手入力アルコール抽出対応・完全修正版)
 
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std", alcMode: false }; 
 let lst = []; let fav = []; let myFoods = []; let hist = []; let bodyData = []; let chatHistory = []; let selIdx = -1; let editIdx = -1; 
@@ -80,7 +80,7 @@ function selFd(i) {
     else if (d[3].includes('g')) { [50, 100, 150, 200, 250].forEach(v => mkBtn(v, v, p)); } else { [0.5, 1, 2, 3].forEach(v => mkBtn(v, v, p)); }
     const bx = document.createElement('div'); bx.className = 'dir-inp'; const unitLabel = d[3].includes('g') ? 'g' : (d[3].includes('杯') ? '杯' : '個/他');
     bx.innerHTML = `<input type="text" inputmode="decimal" placeholder="手入力" oninput="updBd(this.value)"><span class="unit-label">${unitLabel}</span>`; p.appendChild(bx);
-    document.getElementById('m-time').value = getAutoTime(); document.getElementById('m-name').value = d[1]; document.getElementById('m-p').value = d[4]; document.getElementById('m-f').value = d[5]; document.getElementById('m-c').value = d[6]; document.getElementById('m-a').value = 0;
+    document.getElementById('m-time').value = getAutoTime(); 
     updBd(1); setTimeout(() => document.getElementById('amt-area').scrollIntoView({ behavior: 'smooth' }), 100);
 }
 
@@ -108,12 +108,22 @@ function mkBtn(lbl, v, par, subLbl = "") {
     b.onclick = () => { document.querySelectorAll('.a-btn').forEach(x => x.classList.remove('sel')); b.classList.add('sel'); updBd(v); }; par.appendChild(b);
 }
 
+// ★修正: データベースの「カロリーの余り」から、隠れたアルコール量を自動で抽出する処理
 function updBd(v) {
     if (selIdx < 0) return; const d = DB[selIdx]; v = parseNum(v); let m = 1; if (d[3].includes('g')) { m = v / parseFloat(d[3]); } else { m = v; }
-    document.getElementById('m-mul').value = parseFloat(m.toFixed(2)); const P = d[4] * m, F = d[5] * m, C = d[6] * m; const Cal = Math.round((P*4)+(F*9)+(C*4));
+    document.getElementById('m-mul').value = parseFloat(m.toFixed(2)); 
+    const P = d[4] * m, F = d[5] * m, C = d[6] * m; 
+    let unitPfcCal = (d[4]*4) + (d[5]*9) + (d[6]*4);
+    let unitA = (d[0].includes("酒") || d[7] > unitPfcCal + 10) ? Math.max(0, (d[7] - unitPfcCal) / 7) : 0;
+    let A = unitA * m;
+    const Cal = Math.round((P*4)+(F*9)+(C*4)+(A*7));
     document.getElementById('pv-bar').style.display = 'block'; const dispUnit = d[3].includes('g') ? 'g' : (d[3].includes('杯') ? '杯' : '個');
-    document.getElementById('pv-name').textContent = `${d[1]} (${v}${dispUnit})`; document.getElementById('pv-stat').textContent = `${Cal}kcal (P${P.toFixed(1)} F${F.toFixed(1)} C${C.toFixed(1)})`;
-    document.getElementById('m-name').value = d[1]; document.getElementById('m-p').value = d[4]; document.getElementById('m-f').value = d[5]; document.getElementById('m-c').value = d[6]; document.getElementById('m-a').value = 0; document.getElementById('m-cal').value = Cal;
+    document.getElementById('pv-name').textContent = `${d[1]} (${v}${dispUnit})`; 
+    let aStr = (TG.alcMode && A > 0) ? ` A${A.toFixed(1)}` : "";
+    document.getElementById('pv-stat').textContent = `${Cal}kcal (P${P.toFixed(1)} F${F.toFixed(1)} C${C.toFixed(1)}${aStr})`;
+    document.getElementById('m-name').value = d[1]; document.getElementById('m-p').value = d[4]; document.getElementById('m-f').value = d[5]; document.getElementById('m-c').value = d[6]; 
+    document.getElementById('m-a').value = parseFloat(unitA.toFixed(1)); 
+    document.getElementById('m-cal').value = Cal;
 }
 
 function togBd() { const b = document.getElementById('reg-bd'); b.style.display = b.style.display === 'block' ? 'none' : 'block'; }
@@ -200,14 +210,21 @@ function mkTgt() {
     const b = document.getElementById('tgt-btns'); b.innerHTML = "";
     [{v:1200,l:"女性小食"},{v:1600,l:"👩女性減量"},{v:2000,l:"👨男性減量"},{v:2400,l:"活動・増量"}].forEach(t => {
         const d = document.createElement('div'); d.className = 'tg-btn ' + (TG.cal === t.v ? 'act' : ''); d.innerHTML = `<span style="font-size:9px;color:#666">${t.l}</span><strong>${t.v}</strong>`;
-        d.onclick = () => { TG = { cal: t.v, ...calcPFC(t.v), label: t.l, mode: TG.mode, alcMode: TG.alcMode }; localStorage.setItem('tf_tg', JSON.stringify(TG)); if(document.getElementById('cust-cal')) document.getElementById('cust-cal').value = t.v; if(document.getElementById('pfc-mode')) document.getElementById('pfc-mode').value = TG.mode; upd(); mkTgt(); }; b.appendChild(d);
+        d.onclick = () => { 
+            TG = { cal: t.v, ...calcPFC(t.v, TG.mode), label: t.l, mode: TG.mode, alcMode: TG.alcMode }; 
+            localStorage.setItem('tf_tg', JSON.stringify(TG)); 
+            if(document.getElementById('cust-cal')) document.getElementById('cust-cal').value = t.v; 
+            if(document.getElementById('pfc-mode')) document.getElementById('pfc-mode').value = TG.mode; 
+            upd(); mkTgt(); 
+        }; b.appendChild(d);
     });
 }
+
 function toggleTgt() { const b = document.getElementById('tgt-btns'); const c = document.getElementById('cust-tgt'); const d = (b.style.display === 'grid'); b.style.display = d ? 'none' : 'grid'; c.style.display = d ? 'none' : 'flex'; }
 
-function calcPFC(c) {
+function calcPFC(c, m) {
     let p=0, f=0;
-    if (TG.mode === "lowfat") { p = c * 0.3 / 4; f = c * 0.1 / 9; } else if (TG.mode === "muscle") { p = c * 0.4 / 4; f = c * 0.2 / 9; } else if (TG.mode === "keto") { p = c * 0.3 / 4; f = c * 0.6 / 9; } else { p = c * 0.3 / 4; f = c * 0.2 / 9; }
+    if (m === "lowfat") { p = c * 0.3 / 4; f = c * 0.1 / 9; } else if (m === "muscle") { p = c * 0.4 / 4; f = c * 0.2 / 9; } else if (m === "keto") { p = c * 0.3 / 4; f = c * 0.6 / 9; } else { p = c * 0.3 / 4; f = c * 0.2 / 9; }
     return { p: p, f: f, c: (c - (p * 4 + f * 9)) / 4 };
 }
 
@@ -229,7 +246,8 @@ function upd() {
 
 function applyCust() {
     let inputCal = parseNum(document.getElementById('cust-cal').value); const c = inputCal > 0 ? inputCal : TG.cal;
-    TG = { cal: c, ...calcPFC(c), label: "カスタム", mode: document.getElementById('pfc-mode').value, alcMode: document.getElementById('alc-mode-chk').checked };
+    const selectedMode = document.getElementById('pfc-mode').value;
+    TG = { cal: c, ...calcPFC(c, selectedMode), label: "カスタム", mode: selectedMode, alcMode: document.getElementById('alc-mode-chk').checked };
     localStorage.setItem('tf_tg', JSON.stringify(TG)); upd(); toggleTgt(); mkTgt(); 
 }
 
@@ -309,9 +327,22 @@ function exportData() {
 const gasUrl = "https://script.google.com/macros/s/AKfycbxfD_oYqqac1rG0U1Po9cWiHGq1jslASe2GQhEmVtQj8RjDTeIvVtHyA8tpeKHQhzoN/exec";
 let recognition; let isRecording = false;
 
-document.addEventListener('visibilitychange', () => {
-    if (document.hidden && isRecording) { isRecording = false; const micBtn = document.getElementById('mic-btn'); const globalMicBtn = document.getElementById('global-mic-btn'); const inputEl = document.getElementById('chat-input'); if (micBtn) micBtn.classList.remove('recording'); if (globalMicBtn) globalMicBtn.classList.remove('recording'); if (inputEl) inputEl.placeholder = "例: 夜ご飯なにがいい？"; try { if (recognition) recognition.stop(); } catch(e) {} }
-});
+// ★修正: iOSでマイクが確実に切れるように強制停止処理を強化
+const forceStopMic = () => {
+    if (isRecording) { 
+        isRecording = false; 
+        const micBtn = document.getElementById('mic-btn'); 
+        const globalMicBtn = document.getElementById('global-mic-btn'); 
+        const inputEl = document.getElementById('chat-input'); 
+        if (micBtn) micBtn.classList.remove('recording'); 
+        if (globalMicBtn) globalMicBtn.classList.remove('recording'); 
+        if (inputEl) inputEl.placeholder = "例: 夜ご飯なにがいい？"; 
+        try { if (recognition) recognition.abort(); } catch(e) {} 
+    }
+};
+document.addEventListener('visibilitychange', () => { if (document.hidden) forceStopMic(); });
+window.addEventListener('pagehide', forceStopMic);
+window.addEventListener('blur', forceStopMic);
 
 function showToast(msg) {
     let toast = document.getElementById('tama-toast');
@@ -319,7 +350,6 @@ function showToast(msg) {
     toast.innerText = msg; toast.style.opacity = '1'; toast.style.display = 'block'; setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.style.display = 'none', 300); }, 3000);
 }
 
-// ★追加：クラシルとYouTubeのレシピ検索URLを生成して開く関数
 window.openRecipe = function(keywords, type) {
     const q = encodeURIComponent(keywords);
     let url = "";
@@ -341,13 +371,13 @@ function startGlobalMic() { const win = document.getElementById('tama-chat-windo
 
 function toggleMic() {
     const micBtn = document.getElementById('mic-btn'); const globalMicBtn = document.getElementById('global-mic-btn'); const inputEl = document.getElementById('chat-input');
-    if (isRecording) { isRecording = false; micBtn.classList.remove('recording'); if (globalMicBtn) globalMicBtn.classList.remove('recording'); inputEl.placeholder = "例: 夜ご飯なにがいい？"; try { recognition.stop(); } catch(e) {} return; }
+    if (isRecording) { forceStopMic(); return; }
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SpeechRecognition) { addChatMsg('bot', "ブラウザが音声入力に対応していないたま！"); return; }
     recognition = new SpeechRecognition(); recognition.lang = 'ja-JP'; recognition.continuous = false; recognition.interimResults = false; 
     recognition.onstart = () => { isRecording = true; micBtn.classList.add('recording'); if (globalMicBtn) globalMicBtn.classList.add('recording'); inputEl.placeholder = "たまちゃん聞いてるたま！喋って！"; inputEl.value = ''; };
-    recognition.onresult = (event) => { if (!isRecording) return; inputEl.value = event.results[0][0].transcript; isRecording = false; micBtn.classList.remove('recording'); if (globalMicBtn) globalMicBtn.classList.remove('recording'); inputEl.placeholder = "例: 夜ご飯なにがいい？"; sendTamaChat(); };
-    recognition.onerror = (event) => { isRecording = false; micBtn.classList.remove('recording'); if (globalMicBtn) globalMicBtn.classList.remove('recording'); inputEl.placeholder = "例: 夜ご飯なにがいい？"; };
-    recognition.onend = () => { if (isRecording) { isRecording = false; micBtn.classList.remove('recording'); if (globalMicBtn) globalMicBtn.classList.remove('recording'); inputEl.placeholder = "例: 夜ご飯なにがいい？"; if (inputEl.value.trim() !== "") { sendTamaChat(); } } };
+    recognition.onresult = (event) => { if (!isRecording) return; inputEl.value = event.results[0][0].transcript; forceStopMic(); sendTamaChat(); };
+    recognition.onerror = (event) => { forceStopMic(); };
+    recognition.onend = () => { if (isRecording) { forceStopMic(); if (inputEl.value.trim() !== "") { sendTamaChat(); } } };
     recognition.start();
 }
 
@@ -383,7 +413,6 @@ async function sendTamaChat() {
 
         let botReply = ""; let autoFood = null; let replaceFood = null; let targetFoodName = null; let deleteFood = null; let unknownFood = null; let recipeKeywords = null;
         
-        // ★追加：レシピタグの抽出処理
         const recMatch = rawText.match(/\[RECIPE\]\s*(.+)/);
         if (recMatch) { recipeKeywords = recMatch[1].trim(); rawText = rawText.replace(recMatch[0], ""); }
 
@@ -401,7 +430,6 @@ async function sendTamaChat() {
 
         removeMsg(loadingId); const newMsgId = addChatMsg('bot', botReply);
 
-        // ★追加：レシピボタンのUI表示処理
         if (recipeKeywords) {
             const msgEl = document.getElementById(newMsgId).querySelector('.text');
             msgEl.innerHTML += `<br><br><div style="display:flex; gap:8px; width:100%; margin-top:8px;">
