@@ -617,7 +617,7 @@ const gasUrl = "https://script.google.com/macros/s/AKfycbxfD_oYqqac1rG0U1Po9cWiH
 let recognition;
 let isRecording = false;
 
-// ★ 追加: アプリがバックグラウンドに回った時にマイクを強制終了
+// アプリがバックグラウンドに回った時にマイクを強制終了
 document.addEventListener('visibilitychange', () => {
     if (document.hidden && isRecording) {
         isRecording = false;
@@ -689,7 +689,6 @@ function setupChatEnterKey() {
     input.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) sendTamaChat(); });
 }
 
-// グローバルマイクボタン用関数
 function startGlobalMic() {
     const win = document.getElementById('tama-chat-window');
     const btn = document.getElementById('tama-chat-btn');
@@ -775,8 +774,26 @@ async function sendTamaChat() {
 
     const loadingId = addChatMsg('bot', 'たまちゃん考え中...');
     
-    const context = `現在の摂取: ${lst.reduce((a,b)=>a+b.Cal,0)}kcal\n今日食べたものリスト: ${lst.map(x => x.N).join(', ') || 'まだなし'}`;
+    // 現在の摂取と目標PFC
+    const currentCal = lst.reduce((a,b)=>a+b.Cal,0);
+    const currentP = lst.reduce((a,b)=>a+b.P,0);
+    const currentF = lst.reduce((a,b)=>a+b.F,0);
+    const currentC = lst.reduce((a,b)=>a+b.C,0);
+    const context = `【目標】Cal:${TG.cal} P:${TG.p.toFixed(0)} F:${TG.f.toFixed(0)} C:${TG.c.toFixed(0)}\n【現在摂取】Cal:${currentCal} P:${currentP.toFixed(0)} F:${currentF.toFixed(0)} C:${currentC.toFixed(0)}\n今日食べたものリスト: ${lst.map(x => x.N).join(', ') || 'まだなし'}`;
+    
     let historyText = chatHistory.map(m => `${m.role === 'user' ? 'あなた' : 'たまちゃん'}: ${m.text}`).join('\n');
+    
+    // ▼ 追加：ユーザーの「お気に入り」「My食品」をカンペとして渡す ▼
+    let userPrefText = "";
+    if (myFoods && myFoods.length > 0) {
+        userPrefText += `\n【ユーザーのMy食品（よく食べる・好きなもの）】\n${myFoods.map(x => `- ${x.N} (P${x.P} F${x.F} C${x.C} ${x.Cal}kcal)`).join('\n')}\n`;
+    }
+    if (fav && fav.length > 0 && typeof DB !== 'undefined') {
+        let favNames = fav.map(id => DB[id] ? DB[id][1] : "").filter(n => n);
+        if(favNames.length > 0) {
+           userPrefText += `【ユーザーのお気に入り食品】\n${favNames.join(', ')}\n`;
+        }
+    }
     
     let cheatSheetText = "";
     if (typeof DB !== 'undefined') {
@@ -813,6 +830,7 @@ ${context}
 === 会話履歴 ===
 ${historyText}
 ${cheatSheetText}
+${userPrefText}
 
 === ユーザーの発言 ===
 ${text}
