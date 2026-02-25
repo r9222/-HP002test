@@ -1,4 +1,4 @@
-// app.js : アプリの脳みそ (タイムライン＆酒飲みモード・完全デバッグ＆全機能復元版)
+// app.js : アプリの脳みそ (タイムライン＆酒飲みモード・レシピ連携機能追加版)
 
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std", alcMode: false }; 
 let lst = []; let fav = []; let myFoods = []; let hist = []; let bodyData = []; let chatHistory = []; let selIdx = -1; let editIdx = -1; 
@@ -10,12 +10,11 @@ function parseNum(val) {
     return parseFloat(half) || 0;
 }
 
-// ★修正: 自動で「間食」に振り分けないように変更（時計だけを見る）
 function getAutoTime() {
     const h = new Date().getHours();
     if(h >= 4 && h < 11) return "朝";
     if(h >= 11 && h < 16) return "昼";
-    return "晩"; // それ以外は全部「晩」
+    return "晩"; 
 }
 
 window.onload = () => {
@@ -320,10 +319,18 @@ function showToast(msg) {
     toast.innerText = msg; toast.style.opacity = '1'; toast.style.display = 'block'; setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.style.display = 'none', 300); }, 3000);
 }
 
-const generateAiPrompt = (foodName) => { return `「${foodName}」の一般的なカロリーと、PFC（タンパク質・脂質・炭水化物）の数値を調べてください。\n\nまた、私が食事管理アプリにそのままコピペして記録できるよう、回答の最後に以下のフォーマットの〇〇に数値を埋めたテキストを、ワンタップでコピーできるように「マークダウンのコードブロック（\`\`\`）」で囲んで出力してください。\n\n\`\`\`\n${foodName}を食べたよ！カロリーは〇〇kcal、Pは〇〇g、Fは〇〇g、Cは〇〇gだって！\n\`\`\``; };
+// ★追加：クラシルとYouTubeのレシピ検索URLを生成して開く関数
+window.openRecipe = function(keywords, type) {
+    const q = encodeURIComponent(keywords);
+    let url = "";
+    if(type === 'kurashiru') url = `https://www.kurashiru.com/search?query=${q}`;
+    if(type === 'youtube') url = `https://www.youtube.com/results?search_query=${q}+レシピ`;
+    window.open(url, "_blank");
+};
 
 window.openChatGPTAndCopy = function(foodName) {
-    const text = generateAiPrompt(foodName); const textArea = document.createElement("textarea"); textArea.value = text; textArea.style.position = 'fixed'; textArea.style.top = '0'; textArea.style.left = '0'; textArea.style.opacity = '0'; document.body.appendChild(textArea); textArea.focus(); textArea.select(); try { document.execCommand('copy'); } catch (err) {} document.body.removeChild(textArea);
+    const text = `「${foodName}」の一般的なカロリーと、PFC（タンパク質・脂質・炭水化物）の数値を調べてください。\n\nまた、私が食事管理アプリにそのままコピペして記録できるよう、回答の最後に以下のフォーマットの〇〇に数値を埋めたテキストを、ワンタップでコピーできるように「マークダウンのコードブロック（\`\`\`）」で囲んで出力してください。\n\n\`\`\`\n${foodName}を食べたよ！カロリーは〇〇kcal、Pは〇〇g、Fは〇〇g、Cは〇〇gだって！\n\`\`\``;
+    const textArea = document.createElement("textarea"); textArea.value = text; textArea.style.position = 'fixed'; textArea.style.top = '0'; textArea.style.left = '0'; textArea.style.opacity = '0'; document.body.appendChild(textArea); textArea.focus(); textArea.select(); try { document.execCommand('copy'); } catch (err) {} document.body.removeChild(textArea);
     if (navigator.clipboard) { navigator.clipboard.writeText(text).catch(()=>{}); }
     showToast("🤖 質問文をコピーしたたま！\nそのまま貼り付けて聞いてね！"); setTimeout(() => { window.open("https://chatgpt.com/", "_blank"); }, 300);
 };
@@ -374,7 +381,12 @@ async function sendTamaChat() {
         const data = await response.json(); let rawText = data.candidates[0].content.parts[0].text;
         rawText = rawText.replace(/\*\*/g, "").replace(/^たまちゃん:\s*/i, "").replace(/たまちゃんの返答:/g, "").replace(/たまちゃん:\s*/i, ""); 
 
-        let botReply = ""; let autoFood = null; let replaceFood = null; let targetFoodName = null; let deleteFood = null; let unknownFood = null; 
+        let botReply = ""; let autoFood = null; let replaceFood = null; let targetFoodName = null; let deleteFood = null; let unknownFood = null; let recipeKeywords = null;
+        
+        // ★追加：レシピタグの抽出処理
+        const recMatch = rawText.match(/\[RECIPE\]\s*(.+)/);
+        if (recMatch) { recipeKeywords = recMatch[1].trim(); rawText = rawText.replace(recMatch[0], ""); }
+
         const dataIdx = rawText.indexOf("[DATA]"); const repIdx = rawText.indexOf("[REPLACE]"); const delIdx = rawText.indexOf("[DELETE]"); const unkIdx = rawText.indexOf("[UNKNOWN]");
 
         if (dataIdx !== -1) {
@@ -388,6 +400,15 @@ async function sendTamaChat() {
         else { botReply = rawText.trim(); }
 
         removeMsg(loadingId); const newMsgId = addChatMsg('bot', botReply);
+
+        // ★追加：レシピボタンのUI表示処理
+        if (recipeKeywords) {
+            const msgEl = document.getElementById(newMsgId).querySelector('.text');
+            msgEl.innerHTML += `<br><br><div style="display:flex; gap:8px; width:100%; margin-top:8px;">
+                <div onclick="openRecipe('${recipeKeywords}', 'kurashiru')" style="cursor:pointer; flex:1; background-color:#FF9F43; color:#FFFFFF; padding:10px 0; border-radius:8px; font-weight:bold; font-size:12px; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.15);">🍳 クラシルで<br>レシピを見る</div>
+                <div onclick="openRecipe('${recipeKeywords}', 'youtube')" style="cursor:pointer; flex:1; background-color:#FF0000; color:#FFFFFF; padding:10px 0; border-radius:8px; font-weight:bold; font-size:12px; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.15);">▶️ YouTubeで<br>調理法を見る</div>
+            </div>`;
+        }
 
         if (unknownFood) {
             const msgEl = document.getElementById(newMsgId).querySelector('.text');
