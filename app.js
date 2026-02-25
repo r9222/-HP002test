@@ -45,9 +45,11 @@ window.onload = () => {
     if(document.getElementById('b-date')) document.getElementById('b-date').value = today;
     if(document.getElementById('reset-date')) document.getElementById('reset-date').value = today;
 
-    // UI初期化
+    // ★修正: UI初期化時にセレクトボックスと入力欄をしっかり同期させる
     document.getElementById('alc-mode-chk').checked = TG.alcMode;
-    toggleAlcMode(true); // 初期表示用
+    document.getElementById('pfc-mode').value = TG.mode;
+    if(document.getElementById('cust-cal')) document.getElementById('cust-cal').value = TG.cal;
+    toggleAlcMode(true); 
     
     setupChatEnterKey();
     mkCat(); mkTgt(); upd(); ren();
@@ -194,7 +196,7 @@ function updBd(v) {
     let m = 1; if (d[3].includes('g')) { m = v / parseFloat(d[3]); } else { m = v; }
     document.getElementById('m-mul').value = parseFloat(m.toFixed(2));
     const P = d[4] * m, F = d[5] * m, C = d[6] * m;
-    const A = 0; // DBにはAはないので0
+    const A = 0; 
     const Cal = Math.round((P*4)+(F*9)+(C*4));
     document.getElementById('pv-bar').style.display = 'block';
     const dispUnit = d[3].includes('g') ? 'g' : (d[3].includes('杯') ? '杯' : '個');
@@ -218,7 +220,6 @@ function openMan() {
     setTimeout(() => document.getElementById('reg-bd').scrollIntoView({ behavior: 'smooth' }), 100);
 }
 
-// ★アルコールの7kcal計算を追加
 function calcM() {
     const p = parseNum(document.getElementById('m-p').value);
     const f = parseNum(document.getElementById('m-f').value);
@@ -250,7 +251,6 @@ function addM() {
     window.scrollTo(0, 0); 
 }
 
-// ★タイムライン形式のレンダリング
 function ren() {
     const tlArea = document.getElementById('timeline-area');
     tlArea.innerHTML = "";
@@ -387,12 +387,19 @@ function filterF() {
     });
 }
 
+// ★修正: プリセットボタンを押した時にも、セレクトボックスと入力欄を同期させる
 function mkTgt() {
     const b = document.getElementById('tgt-btns'); b.innerHTML = "";
     [{v:1200,l:"女性小食"},{v:1600,l:"👩女性減量"},{v:2000,l:"👨男性減量"},{v:2400,l:"活動・増量"}].forEach(t => {
         const d = document.createElement('div'); d.className = 'tg-btn ' + (TG.cal === t.v ? 'act' : '');
         d.innerHTML = `<span style="font-size:9px;color:#666">${t.l}</span><strong>${t.v}</strong>`;
-        d.onclick = () => { TG = { cal: t.v, ...calcPFC(t.v), label: t.l, mode: TG.mode, alcMode: TG.alcMode }; localStorage.setItem('tf_tg', JSON.stringify(TG)); upd(); mkTgt(); };
+        d.onclick = () => { 
+            TG = { cal: t.v, ...calcPFC(t.v), label: t.l, mode: TG.mode, alcMode: TG.alcMode }; 
+            localStorage.setItem('tf_tg', JSON.stringify(TG)); 
+            document.getElementById('cust-cal').value = t.v;
+            document.getElementById('pfc-mode').value = TG.mode;
+            upd(); mkTgt(); 
+        };
         b.appendChild(d);
     });
 }
@@ -407,12 +414,10 @@ function calcPFC(c) {
     return { p: p, f: f, c: (c - (p * 4 + f * 9)) / 4 };
 }
 
-// ★メーターUI進化 (バー内部にテキスト埋め込み)
 function upd() {
     const t = { Cal: 0, P: 0, F: 0, C: 0, A: 0 }; 
     lst.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; t.A += (x.A || 0); });
     
-    // 現在値テキストの更新
     document.getElementById('cur-cal').textContent = t.Cal;
     document.getElementById('cur-p').textContent = t.P.toFixed(0);
     document.getElementById('cur-f').textContent = t.F.toFixed(0);
@@ -430,29 +435,29 @@ function upd() {
             tx.className = 'rem ' + (r < 0 ? 'ov' : ''); 
             tx.textContent = r < 0 ? `+${Math.abs(r).toFixed(0)}${u}` : `残${r.toFixed(0)}${u}`;
         }
-        // バーの中に「現在 / 目標」を入れる
-        if(tbox) tbox.textContent = `${v.toFixed(0)} / ${tg}${u}`;
+        // ★修正: 目標の数値を Math.round(tg) で四捨五入して表示
+        if(tbox) tbox.textContent = `${v.toFixed(0)} / ${Math.round(tg)}${u}`;
     };
     
     setBar('Cal', t.Cal, TG.cal, 'kcal'); setBar('P', t.P, TG.p, 'g'); setBar('F', t.F, TG.f, 'g'); setBar('C', t.C, TG.c, 'g');
     
-    // アルコールのメーター（目標値はとりあえず0にしてオーバー表記にする）
     if (TG.alcMode) {
         let elA = document.getElementById('bar-a'); let tboxA = document.getElementById('bar-text-a'); let txA = document.getElementById('rem-a');
-        if(elA) elA.style.width = Math.min((t.A / 50) * 100, 100) + '%'; // 便宜上50gを上限幅とする
+        if(elA) elA.style.width = Math.min((t.A / 50) * 100, 100) + '%'; 
         if(tboxA) tboxA.textContent = `${t.A.toFixed(1)}g`;
     }
     
     if(document.getElementById('tgt-disp')) document.getElementById('tgt-disp').textContent = `${TG.cal}kcal`;
 }
 
+// ★修正: 空欄で設定を押したら、今のカロリーを維持する
 function applyCust() {
-    const c = parseNum(document.getElementById('cust-cal').value) || 2000;
+    let inputCal = parseNum(document.getElementById('cust-cal').value);
+    const c = inputCal > 0 ? inputCal : TG.cal;
     TG = { cal: c, ...calcPFC(c), label: "カスタム", mode: document.getElementById('pfc-mode').value, alcMode: document.getElementById('alc-mode-chk').checked };
     localStorage.setItem('tf_tg', JSON.stringify(TG)); upd(); toggleTgt(); mkTgt(); 
 }
 
-// 自動修復フィルター付きインポート
 function importData(input) {
     const file = input.files[0]; if (!file) return;
     const reader = new FileReader();
@@ -490,7 +495,6 @@ function importData(input) {
     reader.readAsText(file);
 }
 
-// グラフや体組成等の各種UI処理
 function togGraph() { const a = document.getElementById('graph-area'); if (a.style.display === 'block') a.style.display = 'none'; else { a.style.display = 'block'; drawGraph('week', document.querySelector('.g-btn')); } }
 function drawGraph(type, btn) {
     document.querySelectorAll('.g-btn').forEach(b => b.classList.remove('act')); if(btn) btn.classList.add('act');
@@ -560,7 +564,6 @@ function drawBodyGraph(mode, btn) {
     box.appendChild(svg);
 }
 
-// ▼▼▼ チャット・AI連携機能 ▼▼▼
 const gasUrl = "https://script.google.com/macros/s/AKfycbxfD_oYqqac1rG0U1Po9cWiHGq1jslASe2GQhEmVtQj8RjDTeIvVtHyA8tpeKHQhzoN/exec";
 let recognition;
 let isRecording = false;
@@ -657,7 +660,6 @@ async function sendTamaChat() {
 
         let botReply = ""; let autoFood = null; let replaceFood = null; let targetFoodName = null; let deleteFood = null; let unknownFood = null; 
 
-        // ★タグパーサー進化 (時間帯とアルコールAの抽出)
         const dataIdx = rawText.indexOf("[DATA]");
         const repIdx = rawText.indexOf("[REPLACE]");
         const delIdx = rawText.indexOf("[DELETE]");
