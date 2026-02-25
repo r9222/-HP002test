@@ -1,4 +1,4 @@
-// app.js : アプリの脳みそ (タイムライン＆酒飲みモードPFCA完全対応版)
+// app.js : アプリの脳みそ (タイムライン＆酒飲みモードPFCA・完全デバッグ版)
 
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std", alcMode: false }; 
 let lst = []; 
@@ -45,7 +45,7 @@ window.onload = () => {
     if(document.getElementById('b-date')) document.getElementById('b-date').value = today;
     if(document.getElementById('reset-date')) document.getElementById('reset-date').value = today;
 
-    // ★修正: UI初期化時にセレクトボックスと入力欄をしっかり同期させる
+    // UI初期化時の同期
     document.getElementById('alc-mode-chk').checked = TG.alcMode;
     document.getElementById('pfc-mode').value = TG.mode;
     if(document.getElementById('cust-cal')) document.getElementById('cust-cal').value = TG.cal;
@@ -251,6 +251,7 @@ function addM() {
     window.scrollTo(0, 0); 
 }
 
+// ★幽霊アイテム防止バグ修正
 function ren() {
     const tlArea = document.getElementById('timeline-area');
     tlArea.innerHTML = "";
@@ -258,6 +259,13 @@ function ren() {
     let totalCal = 0;
     const times = ["朝", "昼", "晩", "間食"];
     const emojis = {"朝":"☀️", "昼":"☁️", "晩":"🌙", "間食":"☕"};
+    
+    // 【重要】AIが変な時間帯を出力した時のセーフティネット（強制的に間食に入れる）
+    lst.forEach(x => {
+        if (!times.includes(x.time)) {
+            x.time = "間食";
+        }
+    });
     
     times.forEach(t => {
         const items = lst.map((x, i) => ({...x, i})).filter(x => x.time === t);
@@ -387,7 +395,7 @@ function filterF() {
     });
 }
 
-// ★修正: プリセットボタンを押した時にも、セレクトボックスと入力欄を同期させる
+// ★修正: プリセットボタンを押した時にも、各種設定を完全に同期させる
 function mkTgt() {
     const b = document.getElementById('tgt-btns'); b.innerHTML = "";
     [{v:1200,l:"女性小食"},{v:1600,l:"👩女性減量"},{v:2000,l:"👨男性減量"},{v:2400,l:"活動・増量"}].forEach(t => {
@@ -396,8 +404,8 @@ function mkTgt() {
         d.onclick = () => { 
             TG = { cal: t.v, ...calcPFC(t.v), label: t.l, mode: TG.mode, alcMode: TG.alcMode }; 
             localStorage.setItem('tf_tg', JSON.stringify(TG)); 
-            document.getElementById('cust-cal').value = t.v;
-            document.getElementById('pfc-mode').value = TG.mode;
+            if(document.getElementById('cust-cal')) document.getElementById('cust-cal').value = t.v;
+            if(document.getElementById('pfc-mode')) document.getElementById('pfc-mode').value = TG.mode;
             upd(); mkTgt(); 
         };
         b.appendChild(d);
@@ -414,6 +422,7 @@ function calcPFC(c) {
     return { p: p, f: f, c: (c - (p * 4 + f * 9)) / 4 };
 }
 
+// ★修正: 小数の丸め処理と、タイトルの完全同期
 function upd() {
     const t = { Cal: 0, P: 0, F: 0, C: 0, A: 0 }; 
     lst.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; t.A += (x.A || 0); });
@@ -435,7 +444,7 @@ function upd() {
             tx.className = 'rem ' + (r < 0 ? 'ov' : ''); 
             tx.textContent = r < 0 ? `+${Math.abs(r).toFixed(0)}${u}` : `残${r.toFixed(0)}${u}`;
         }
-        // ★修正: 目標の数値を Math.round(tg) で四捨五入して表示
+        // ★修正: 分母の目標数値を丸めて表示（44.4444...を防止）
         if(tbox) tbox.textContent = `${v.toFixed(0)} / ${Math.round(tg)}${u}`;
     };
     
@@ -447,10 +456,15 @@ function upd() {
         if(tboxA) tboxA.textContent = `${t.A.toFixed(1)}g`;
     }
     
-    if(document.getElementById('tgt-disp')) document.getElementById('tgt-disp').textContent = `${TG.cal}kcal`;
+    // ★修正: タイトルの完全同期（ローファット等を選んだらタイトルもちゃんと変わる）
+    const modeNames = { std: "標準(3:2:5)", lowfat: "ローファット(3:1:6)", muscle: "筋肥大(4:2:4)", keto: "ケト(3:6:1)" };
+    const modeName = modeNames[TG.mode] || "カスタム";
+    
+    if(document.getElementById('tgt-disp')) document.getElementById('tgt-disp').textContent = `${TG.cal}kcal [${modeName.split('(')[0]}] ▼`;
+    if(document.getElementById('pfc-ratio-disp')) document.getElementById('pfc-ratio-disp').textContent = modeName;
 }
 
-// ★修正: 空欄で設定を押したら、今のカロリーを維持する
+// ★修正: カロリー空欄で設定を押したときに、2000に戻らないようにする
 function applyCust() {
     let inputCal = parseNum(document.getElementById('cust-cal').value);
     const c = inputCal > 0 ? inputCal : TG.cal;
