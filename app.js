@@ -1,6 +1,6 @@
-// app.js : アプリの脳みそ (最強の3連レシピボタン搭載・完全バグ修正版)
+// app.js : アプリの脳みそ (0時自動リセット機能追加・完全版)
 
-let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std", alcMode: false }; 
+let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std", alcMode: false, autoReset: false }; 
 let lst = []; let fav = []; let myFoods = []; let hist = []; let bodyData = []; let chatHistory = []; let selIdx = -1; let editIdx = -1; 
 const toHira = s => s.replace(/[\u30a1-\u30f6]/g, m => String.fromCharCode(m.charCodeAt(0) - 0x60)); 
 
@@ -8,13 +8,28 @@ function parseNum(val) { if (typeof val !== 'string') return parseFloat(val) || 
 function getAutoTime() { const h = new Date().getHours(); if(h >= 4 && h < 11) return "朝"; if(h >= 11 && h < 16) return "昼"; return "晩"; }
 
 window.onload = () => {
-    if (localStorage.getItem('tf_tg')) { TG = JSON.parse(localStorage.getItem('tf_tg')); if (TG.alcMode === undefined) TG.alcMode = false; }
+    if (localStorage.getItem('tf_tg')) { TG = JSON.parse(localStorage.getItem('tf_tg')); if (TG.alcMode === undefined) TG.alcMode = false; if (TG.autoReset === undefined) TG.autoReset = false; }
     if (localStorage.getItem('tf_fav')) fav = JSON.parse(localStorage.getItem('tf_fav'));
     if (localStorage.getItem('tf_my')) myFoods = JSON.parse(localStorage.getItem('tf_my'));
     if (localStorage.getItem('tf_hist')) hist = JSON.parse(localStorage.getItem('tf_hist'));
     if (localStorage.getItem('tf_body')) bodyData = JSON.parse(localStorage.getItem('tf_body'));
     if (!TG.mode) TG.mode = "std";
     const savedData = localStorage.getItem('tf_dat'); if (savedData) lst = JSON.parse(savedData);
+    
+    // ▼▼▼ 第1弾：自動リセット（日付またぎチェック）処理 ▼▼▼
+    const todayStr = new Date().toLocaleDateString();
+    let lastDateStr = localStorage.getItem('tf_last_date');
+    if (!lastDateStr) { localStorage.setItem('tf_last_date', todayStr); lastDateStr = todayStr; }
+    
+    if (TG.autoReset && lastDateStr !== todayStr && lst.length > 0) {
+        svHist(lastDateStr, JSON.parse(JSON.stringify(lst))); // 昨日の日付で保存
+        lst = []; // リセット
+        localStorage.setItem('tf_dat', JSON.stringify(lst));
+        alert(`📅 日付が変わったため、昨日（${lastDateStr}）の記録を自動保存してリセットしたたま！`);
+    }
+    localStorage.setItem('tf_last_date', todayStr); // 最終起動日を今日に更新
+    // ▲▲▲ 追加ここまで ▲▲▲
+
     const d = new Date(); const today = `${d.getFullYear()}-${("0"+(d.getMonth()+1)).slice(-2)}-${("0"+d.getDate()).slice(-2)}`;
     if(document.getElementById('b-date')) document.getElementById('b-date').value = today;
     if(document.getElementById('reset-date')) document.getElementById('reset-date').value = today;
@@ -152,9 +167,22 @@ function ed(i) {
 }
 
 function sv() { localStorage.setItem('tf_dat', JSON.stringify(lst)); }
-function rst() { document.getElementById('reset-modal').style.display = 'flex'; }
+
+// ▼▼▼ 第1弾：トグル機能とモーダル連携 ▼▼▼
+function rst() { 
+    document.getElementById('reset-modal').style.display = 'flex'; 
+    if(document.getElementById('auto-reset-chk')) document.getElementById('auto-reset-chk').checked = TG.autoReset || false;
+}
+
+function toggleAutoReset() {
+    TG.autoReset = document.getElementById('auto-reset-chk').checked;
+    localStorage.setItem('tf_tg', JSON.stringify(TG));
+}
+
 function closeResetModal() { document.getElementById('reset-modal').style.display = 'none'; }
 function confirmReset() { const d = document.getElementById('reset-date').value; if (!d) return alert("日付を選択してください"); const dateStr = new Date(d).toLocaleDateString(); svHist(dateStr, JSON.parse(JSON.stringify(lst))); lst = []; sv(); ren(); upd(); closeResetModal(); alert(`${dateStr} の記録として保存し、リセットしました。`); }
+// ▲▲▲ 追加・修正ここまで ▲▲▲
+
 function svHist(d, l) { const i = hist.findIndex(h => h.d === d); if (i >= 0) hist.splice(i, 1); const t = { Cal: 0, P: 0, F: 0, C: 0 }; l.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; }); hist.unshift({ d: d, s: t, l: l }); if (hist.length > 30) hist.pop(); localStorage.setItem('tf_hist', JSON.stringify(hist)); }
 function togHist() { const a = document.getElementById('hist-area'); if (a.style.display === 'block') a.style.display = 'none'; else { a.style.display = 'block'; rHist(); } }
 
@@ -189,7 +217,7 @@ function mkTgt() {
     const b = document.getElementById('tgt-btns'); b.innerHTML = "";
     [{v:1200,l:"女性小食"},{v:1600,l:"👩女性減量"},{v:2000,l:"👨男性減量"},{v:2400,l:"活動・増量"}].forEach(t => {
         const d = document.createElement('div'); d.className = 'tg-btn ' + (TG.cal === t.v ? 'act' : ''); d.innerHTML = `<span style="font-size:9px;color:#666">${t.l}</span><strong>${t.v}</strong>`;
-        d.onclick = () => { TG = { cal: t.v, ...calcPFC(t.v, TG.mode), label: t.l, mode: TG.mode, alcMode: TG.alcMode }; localStorage.setItem('tf_tg', JSON.stringify(TG)); if(document.getElementById('cust-cal')) document.getElementById('cust-cal').value = t.v; if(document.getElementById('pfc-mode')) document.getElementById('pfc-mode').value = TG.mode; upd(); mkTgt(); }; b.appendChild(d);
+        d.onclick = () => { TG = { cal: t.v, ...calcPFC(t.v, TG.mode), label: t.l, mode: TG.mode, alcMode: TG.alcMode, autoReset: TG.autoReset }; localStorage.setItem('tf_tg', JSON.stringify(TG)); if(document.getElementById('cust-cal')) document.getElementById('cust-cal').value = t.v; if(document.getElementById('pfc-mode')) document.getElementById('pfc-mode').value = TG.mode; upd(); mkTgt(); }; b.appendChild(d);
     });
 }
 function toggleTgt() { const b = document.getElementById('tgt-btns'); const c = document.getElementById('cust-tgt'); const d = (b.style.display === 'grid'); b.style.display = d ? 'none' : 'grid'; c.style.display = d ? 'none' : 'flex'; }
@@ -215,7 +243,7 @@ function upd() {
 }
 function applyCust() {
     let inputCal = parseNum(document.getElementById('cust-cal').value); const c = inputCal > 0 ? inputCal : TG.cal; const selectedMode = document.getElementById('pfc-mode').value;
-    TG = { cal: c, ...calcPFC(c, selectedMode), label: "カスタム", mode: selectedMode, alcMode: document.getElementById('alc-mode-chk').checked };
+    TG = { cal: c, ...calcPFC(c, selectedMode), label: "カスタム", mode: selectedMode, alcMode: document.getElementById('alc-mode-chk').checked, autoReset: TG.autoReset };
     localStorage.setItem('tf_tg', JSON.stringify(TG)); upd(); toggleTgt(); mkTgt(); 
 }
 
@@ -228,7 +256,7 @@ function importData(input) {
             if (data.dat) { let rawLst = JSON.parse(data.dat); let fixedLst = rawLst.map(x => ({ N: x.N || x.n || "不明な食品", P: safeNum(x.P !== undefined ? x.P : x.p), F: safeNum(x.F !== undefined ? x.F : x.f), C: safeNum(x.C !== undefined ? x.C : x.c), A: safeNum(x.A), Cal: Math.round(safeNum(x.Cal !== undefined ? x.Cal : x.cal)), U: x.U || x.u || "-", time: x.time || "間食" })); localStorage.setItem('tf_dat', JSON.stringify(fixedLst)); }
             if (data.hist) { let rawHist = JSON.parse(data.hist); let fixedHist = rawHist.map(h => ({ d: h.d || "不明な日", s: { P: safeNum(h.s?.P !== undefined ? h.s.P : h.s?.p), F: safeNum(h.s?.F !== undefined ? h.s.F : h.s?.f), C: safeNum(h.s?.C !== undefined ? h.s.C : h.s?.c), Cal: Math.round(safeNum(h.s?.Cal !== undefined ? h.s.Cal : h.s?.cal)) }, l: (h.l || []).map(x => ({ N: x.N || x.n || "不明", P: safeNum(x.P !== undefined ? x.P : x.p), F: safeNum(x.F !== undefined ? x.F : x.f), C: safeNum(x.C !== undefined ? x.C : x.c), A: safeNum(x.A), Cal: Math.round(safeNum(x.Cal !== undefined ? x.Cal : x.cal)), U: x.U || x.u || "-", time: x.time || "間食" })) })); localStorage.setItem('tf_hist', JSON.stringify(fixedHist)); }
             if (data.my) { let rawMy = JSON.parse(data.my); let fixedMy = rawMy.map(x => ({ N: x.N || x.n || "不明", P: safeNum(x.P !== undefined ? x.P : x.p), F: safeNum(x.F !== undefined ? x.F : x.f), C: safeNum(x.C !== undefined ? x.C : x.c), A: safeNum(x.A), Cal: Math.round(safeNum(x.Cal !== undefined ? x.Cal : x.cal)) })); localStorage.setItem('tf_my', JSON.stringify(fixedMy)); }
-            if(data.tg) { let tgData = JSON.parse(data.tg); if(tgData.alcMode===undefined) tgData.alcMode = false; localStorage.setItem('tf_tg', JSON.stringify(tgData)); }
+            if(data.tg) { let tgData = JSON.parse(data.tg); if(tgData.alcMode===undefined) tgData.alcMode = false; if(tgData.autoReset===undefined) tgData.autoReset=false; localStorage.setItem('tf_tg', JSON.stringify(tgData)); }
             if(data.fav) localStorage.setItem('tf_fav', data.fav); if(data.date) localStorage.setItem('tf_date', data.date); if(data.body) localStorage.setItem('tf_body', data.body);
             alert("✅ データの修復とお引越しが完了しました！リロードします。"); location.reload();
         } catch (err) { alert("ファイルが正しくありません。エラー: " + err.message); }
@@ -391,7 +419,6 @@ async function sendTamaChat() {
 
         removeMsg(loadingId); const newMsgId = addChatMsg('bot', botReply);
 
-        // ★最強のレシピボタン3連
         if (recipeKeywords) {
             const msgEl = document.getElementById(newMsgId).querySelector('.text');
             msgEl.innerHTML += `<br><br><div style="display:flex; flex-direction:column; gap:6px; width:100%; margin-top:8px;">
