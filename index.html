@@ -4,8 +4,24 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-<link rel="manifest" href="manifest.json">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<script>
+    // アクセスしてきたのがiOS（iPhone/iPad）かどうかを判定
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+    // マニフェスト（アプリ設定ファイル）を動的に切り替え
+    const manifestLink = document.createElement('link');
+    manifestLink.rel = 'manifest';
+    manifestLink.href = isIOS ? 'manifest-ios.json' : 'manifest.json';
+    document.head.appendChild(manifestLink);
+
+    // iOS以外（Androidなど）の時だけ、アプリ化のメタタグを入れる
+    if (!isIOS) {
+        const meta = document.createElement('meta');
+        meta.name = 'apple-mobile-web-app-capable';
+        meta.content = 'yes';
+        document.head.appendChild(meta);
+    }
+</script>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="たまPFC">
 <link rel="apple-touch-icon" href="icon.png">
@@ -602,5 +618,6 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
+
 
 
