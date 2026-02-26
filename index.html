@@ -42,7 +42,7 @@
     --add: #2ecc71;      /* 緑 */
     --gd: #f39c12;       /* 金 */
     --my: #9b59b6;       /* 紫 */
-    --body: #2ecc71;     /* 体組成 */
+    --body: #2ecc71;      /* 体組成 */
 }
 
 body {
@@ -312,9 +312,9 @@ svg { width: 100%; height: 100%; overflow: visible; }
 .m-save { background: var(--th); color: #fff; }
 .m-cancel { background: #eee; color: #333; }
 
-/* ▼▼▼ チャット機能デザイン ▼▼▼ */
+/* ▼▼▼ チャット機能デザイン (iOS Safari見切れ対策版) ▼▼▼ */
 #tama-chat-btn {
-    position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+    position: fixed; bottom: 80px; right: 20px; z-index: 9999; /* bottomを上げてSafariのバーと被らないように調整 */
     display: flex; align-items: center; justify-content: center;
     background-color: var(--th); color: #fff;
     width: 60px; height: 60px;
@@ -322,14 +322,20 @@ svg { width: 100%; height: 100%; overflow: visible; }
     box-shadow: 0 4px 15px rgba(0,0,0,0.3);
     cursor: pointer; transition: all 0.2s ease;
     user-select: none; -webkit-user-select: none;
+    overflow: hidden; /* ★ここ重要：はみ出しを隠す */
 }
+
+/* ★ここ重要：画像が潰れないように設定 */
 #tama-chat-btn img {
-    width: 40px; height: 40px; border-radius: 50%;
-    border: 2px solid white; background-color: #fff;
+    width: 100%; height: 100%; 
+    object-fit: cover; /* 画像の比率を保ったまま枠を埋める */
+    border-radius: 50%; /* iOSバグ対策で画像自体にも丸みを持たせる */
+    display: block;
     pointer-events: none;
 }
+
 #global-mic-btn {
-    position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%);
+    position: fixed; bottom: 85px; left: 50%; transform: translateX(-50%); /* これも少し上に上げる */
     background: linear-gradient(135deg, #ff4757, #ff6b81);
     color: #fff; padding: 12px 30px; border-radius: 30px;
     box-shadow: 0 4px 15px rgba(255, 71, 87, 0.4);
@@ -345,8 +351,8 @@ svg { width: 100%; height: 100%; overflow: visible; }
 }
 
 #tama-chat-window {
-    position: fixed; bottom: 85px; right: 20px;
-    width: 350px; height: 500px; max-height: 70vh;
+    position: fixed; bottom: 150px; right: 20px; /* チャットウィンドウも上にズラす */
+    width: 350px; height: 500px; max-height: 65vh;
     background-color: #fff; border-radius: 16px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 10000;
     display: none; flex-direction: column; overflow: hidden; border: 1px solid #ddd;
@@ -362,7 +368,18 @@ svg { width: 100%; height: 100%; overflow: visible; }
 }
 .msg { display: flex; align-items: flex-end; gap: 10px; max-width: 100%; }
 .msg.user { flex-direction: row-reverse; }
-.msg .icon img { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #fff; background: #fff; }
+
+/* ★ここ重要：チャット内のアイコンが潰れないように設定 */
+.msg .icon {
+    flex-shrink: 0; /* iOS Safariでアイコンが細長く潰されるのを防ぐ絶対命令 */
+    width: 40px; height: 40px; 
+    border-radius: 50%; border: 2px solid #fff; background: #fff;
+    overflow: hidden; display: flex; align-items: center; justify-content: center;
+}
+.msg .icon img { 
+    width: 100%; height: 100%; 
+    object-fit: cover; /* 画像の比率を保つ */
+}
 .msg.user .icon { display: none; }
 .msg .text {
     background: #fff; padding: 10px 14px; border-radius: 18px; border-top-left-radius: 2px;
@@ -381,7 +398,7 @@ svg { width: 100%; height: 100%; overflow: visible; }
 #chat-input:disabled { background-color: #f9f9f9; color: #999; cursor: not-allowed; }
 .chat-footer #chat-send { padding: 0 16px; height: 40px; border-radius: 20px; background: var(--th); color: white; font-weight: bold; border: none; cursor: pointer; transition: 0.3s; }
 .chat-footer #chat-send:disabled { background-color: #ccc; cursor: not-allowed; }
-@media (max-width: 600px) { #tama-chat-window { width: 92%; right: 4%; bottom: 85px; } }
+@media (max-width: 600px) { #tama-chat-window { width: 92%; right: 4%; bottom: 150px; } }
 </style>
 </head>
 <body>
@@ -618,6 +635,3 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
-
-
-
