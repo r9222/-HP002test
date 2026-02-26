@@ -1,4 +1,4 @@
-// app.js : アプリの脳みそ (0時自動リセット機能追加・完全版)
+// app.js : アプリの脳みそ (IDシステム導入・間食廃止・AI超強化版)
 
 let TG = { cal: 2000, p: 150, f: 44, c: 250, label: "👨男性減量", mode: "std", alcMode: false, autoReset: false }; 
 let lst = []; let fav = []; let myFoods = []; let hist = []; let bodyData = []; let chatHistory = []; let selIdx = -1; let editIdx = -1; 
@@ -14,21 +14,24 @@ window.onload = () => {
     if (localStorage.getItem('tf_hist')) hist = JSON.parse(localStorage.getItem('tf_hist'));
     if (localStorage.getItem('tf_body')) bodyData = JSON.parse(localStorage.getItem('tf_body'));
     if (!TG.mode) TG.mode = "std";
-    const savedData = localStorage.getItem('tf_dat'); if (savedData) lst = JSON.parse(savedData);
+    const savedData = localStorage.getItem('tf_dat'); 
+    if (savedData) {
+        let parsed = JSON.parse(savedData);
+        // 古いデータにIDがない場合は自動付与する安全策
+        lst = parsed.map((x, i) => ({...x, id: x.id || Date.now() + i}));
+    }
     
-    // ▼▼▼ 第1弾：自動リセット（日付またぎチェック）処理 ▼▼▼
     const todayStr = new Date().toLocaleDateString();
     let lastDateStr = localStorage.getItem('tf_last_date');
     if (!lastDateStr) { localStorage.setItem('tf_last_date', todayStr); lastDateStr = todayStr; }
     
     if (TG.autoReset && lastDateStr !== todayStr && lst.length > 0) {
-        svHist(lastDateStr, JSON.parse(JSON.stringify(lst))); // 昨日の日付で保存
-        lst = []; // リセット
+        svHist(lastDateStr, JSON.parse(JSON.stringify(lst))); 
+        lst = []; 
         localStorage.setItem('tf_dat', JSON.stringify(lst));
         alert(`📅 日付が変わったため、昨日（${lastDateStr}）の記録を自動保存してリセットしたたま！`);
     }
-    localStorage.setItem('tf_last_date', todayStr); // 最終起動日を今日に更新
-    // ▲▲▲ 追加ここまで ▲▲▲
+    localStorage.setItem('tf_last_date', todayStr); 
 
     const d = new Date(); const today = `${d.getFullYear()}-${("0"+(d.getMonth()+1)).slice(-2)}-${("0"+d.getDate()).slice(-2)}`;
     if(document.getElementById('b-date')) document.getElementById('b-date').value = today;
@@ -132,19 +135,19 @@ function calcM() {
 }
 
 function addM() {
-    const n = document.getElementById('m-name').value || "未入力"; const time = document.getElementById('m-time').value || "間食"; const m = parseNum(document.getElementById('m-mul').value) || 1;
+    const n = document.getElementById('m-name').value || "未入力"; const time = document.getElementById('m-time').value || "朝"; const m = parseNum(document.getElementById('m-mul').value) || 1;
     const p = parseNum(document.getElementById('m-p').value) * m; const f = parseNum(document.getElementById('m-f').value) * m; const c = parseNum(document.getElementById('m-c').value) * m; const a = parseNum(document.getElementById('m-a').value) * m;
     const cal = parseNum(document.getElementById('m-cal').value) || (p * 4 + f * 9 + c * 4 + a * 7);
     const unit = (editIdx >= 0) ? lst[editIdx].U : (selIdx >= 0 ? DB[selIdx][3] : "-");
-    const newData = { N: n, P: p, F: f, C: c, A: a, Cal: Math.round(cal), U: unit, time: time };
-    if (editIdx >= 0) { lst[editIdx] = newData; editIdx = -1; document.getElementById('btn-reg').textContent = "リストに追加する"; document.getElementById('reg-bd').classList.remove('editing'); } else { lst.push(newData); }
+    const newData = { id: Date.now(), N: n, P: p, F: f, C: c, A: a, Cal: Math.round(cal), U: unit, time: time };
+    if (editIdx >= 0) { newData.id = lst[editIdx].id; lst[editIdx] = newData; editIdx = -1; document.getElementById('btn-reg').textContent = "リストに追加する"; document.getElementById('reg-bd').classList.remove('editing'); } else { lst.push(newData); }
     sv(); ren(); upd(); document.getElementById('amt-area').style.display = 'none'; clsBd(); document.getElementById('m-name').value = ''; document.getElementById('m-cal').value = ''; window.scrollTo(0, 0); 
 }
 
 function ren() {
     const tlArea = document.getElementById('timeline-area'); tlArea.innerHTML = ""; let totalCal = 0;
-    const times = ["朝", "昼", "晩", "間食"]; const emojis = {"朝":"☀️", "昼":"☁️", "晩":"🌙", "間食":"☕"};
-    lst.forEach(x => { if (!times.includes(x.time)) x.time = "間食"; });
+    const times = ["朝", "昼", "晩"]; const emojis = {"朝":"☀️", "昼":"☁️", "晩":"🌙"};
+    lst.forEach(x => { if (!times.includes(x.time)) x.time = "朝"; });
     times.forEach(t => {
         const items = lst.map((x, i) => ({...x, i})).filter(x => x.time === t); if (items.length === 0) return;
         let tCal=0, tP=0, tF=0, tC=0, tA=0; items.forEach(x => { tCal+=x.Cal; tP+=x.P; tF+=x.F; tC+=x.C; tA+=(x.A||0); totalCal+=x.Cal; });
@@ -159,7 +162,7 @@ function ren() {
 }
 
 function del(i) { lst.splice(i, 1); sv(); ren(); upd(); }
-function reAdd(i) { lst.push({ ...lst[i] }); sv(); ren(); upd(); }
+function reAdd(i) { lst.push({ ...lst[i], id: Date.now() + Math.floor(Math.random() * 1000) }); sv(); ren(); upd(); }
 function ed(i) {
     const x = lst[i]; editIdx = i; selIdx = -1; document.getElementById('amt-area').style.display = 'block'; const bd = document.getElementById('reg-bd'); bd.style.display = 'block'; bd.classList.add('editing');
     document.getElementById('btn-reg').textContent = "更新して完了"; document.getElementById('m-time').value = x.time || getAutoTime(); document.getElementById('m-name').value = x.N; document.getElementById('m-p').value = x.P; document.getElementById('m-f').value = x.F; document.getElementById('m-c').value = x.C; document.getElementById('m-a').value = x.A || 0; document.getElementById('m-mul').value = 1; document.getElementById('m-cal').value = x.Cal;
@@ -168,20 +171,13 @@ function ed(i) {
 
 function sv() { localStorage.setItem('tf_dat', JSON.stringify(lst)); }
 
-// ▼▼▼ 第1弾：トグル機能とモーダル連携 ▼▼▼
 function rst() { 
     document.getElementById('reset-modal').style.display = 'flex'; 
     if(document.getElementById('auto-reset-chk')) document.getElementById('auto-reset-chk').checked = TG.autoReset || false;
 }
-
-function toggleAutoReset() {
-    TG.autoReset = document.getElementById('auto-reset-chk').checked;
-    localStorage.setItem('tf_tg', JSON.stringify(TG));
-}
-
+function toggleAutoReset() { TG.autoReset = document.getElementById('auto-reset-chk').checked; localStorage.setItem('tf_tg', JSON.stringify(TG)); }
 function closeResetModal() { document.getElementById('reset-modal').style.display = 'none'; }
 function confirmReset() { const d = document.getElementById('reset-date').value; if (!d) return alert("日付を選択してください"); const dateStr = new Date(d).toLocaleDateString(); svHist(dateStr, JSON.parse(JSON.stringify(lst))); lst = []; sv(); ren(); upd(); closeResetModal(); alert(`${dateStr} の記録として保存し、リセットしました。`); }
-// ▲▲▲ 追加・修正ここまで ▲▲▲
 
 function svHist(d, l) { const i = hist.findIndex(h => h.d === d); if (i >= 0) hist.splice(i, 1); const t = { Cal: 0, P: 0, F: 0, C: 0 }; l.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; }); hist.unshift({ d: d, s: t, l: l }); if (hist.length > 30) hist.pop(); localStorage.setItem('tf_hist', JSON.stringify(hist)); }
 function togHist() { const a = document.getElementById('hist-area'); if (a.style.display === 'block') a.style.display = 'none'; else { a.style.display = 'block'; rHist(); } }
@@ -195,7 +191,7 @@ function rHist() {
     });
 }
 
-function resHist(i) { if (!confirm("追加しますか？")) return; lst = lst.concat(hist[i].l); sv(); ren(); upd(); alert("追加しました"); }
+function resHist(i) { if (!confirm("追加しますか？")) return; const addItems = hist[i].l.map((x, idx) => ({...x, id: Date.now() + idx})); lst = lst.concat(addItems); sv(); ren(); upd(); alert("追加しました"); }
 function cpHist(i) { const h = hist[i]; let t = `【${h.d}】\n`; h.l.forEach(x => t += `${x.time?`[${x.time}] `:''}${x.N} ${x.Cal}kcal\n`); navigator.clipboard.writeText(t).then(() => alert("コピー完了")); }
 function delHist(i) { if (!confirm("削除しますか？")) return; hist.splice(i, 1); localStorage.setItem('tf_hist', JSON.stringify(hist)); rHist(); }
 function togFav(i, el) { const x = fav.indexOf(i); if (x >= 0) fav.splice(x, 1); else fav.push(i); localStorage.setItem('tf_fav', JSON.stringify(fav)); el.classList.toggle('act'); }
@@ -253,8 +249,8 @@ function importData(input) {
     reader.onload = function(e) {
         try {
             const data = JSON.parse(e.target.result); const safeNum = (v) => isNaN(parseFloat(v)) ? 0 : parseFloat(v);
-            if (data.dat) { let rawLst = JSON.parse(data.dat); let fixedLst = rawLst.map(x => ({ N: x.N || x.n || "不明な食品", P: safeNum(x.P !== undefined ? x.P : x.p), F: safeNum(x.F !== undefined ? x.F : x.f), C: safeNum(x.C !== undefined ? x.C : x.c), A: safeNum(x.A), Cal: Math.round(safeNum(x.Cal !== undefined ? x.Cal : x.cal)), U: x.U || x.u || "-", time: x.time || "間食" })); localStorage.setItem('tf_dat', JSON.stringify(fixedLst)); }
-            if (data.hist) { let rawHist = JSON.parse(data.hist); let fixedHist = rawHist.map(h => ({ d: h.d || "不明な日", s: { P: safeNum(h.s?.P !== undefined ? h.s.P : h.s?.p), F: safeNum(h.s?.F !== undefined ? h.s.F : h.s?.f), C: safeNum(h.s?.C !== undefined ? h.s.C : h.s?.c), Cal: Math.round(safeNum(h.s?.Cal !== undefined ? h.s.Cal : h.s?.cal)) }, l: (h.l || []).map(x => ({ N: x.N || x.n || "不明", P: safeNum(x.P !== undefined ? x.P : x.p), F: safeNum(x.F !== undefined ? x.F : x.f), C: safeNum(x.C !== undefined ? x.C : x.c), A: safeNum(x.A), Cal: Math.round(safeNum(x.Cal !== undefined ? x.Cal : x.cal)), U: x.U || x.u || "-", time: x.time || "間食" })) })); localStorage.setItem('tf_hist', JSON.stringify(fixedHist)); }
+            if (data.dat) { let rawLst = JSON.parse(data.dat); let fixedLst = rawLst.map(x => ({ id: x.id || Date.now() + Math.floor(Math.random()*1000), N: x.N || x.n || "不明な食品", P: safeNum(x.P !== undefined ? x.P : x.p), F: safeNum(x.F !== undefined ? x.F : x.f), C: safeNum(x.C !== undefined ? x.C : x.c), A: safeNum(x.A), Cal: Math.round(safeNum(x.Cal !== undefined ? x.Cal : x.cal)), U: x.U || x.u || "-", time: x.time || "朝" })); localStorage.setItem('tf_dat', JSON.stringify(fixedLst)); }
+            if (data.hist) { let rawHist = JSON.parse(data.hist); let fixedHist = rawHist.map(h => ({ d: h.d || "不明な日", s: { P: safeNum(h.s?.P !== undefined ? h.s.P : h.s?.p), F: safeNum(h.s?.F !== undefined ? h.s.F : h.s?.f), C: safeNum(h.s?.C !== undefined ? h.s.C : h.s?.c), Cal: Math.round(safeNum(h.s?.Cal !== undefined ? h.s.Cal : h.s?.cal)) }, l: (h.l || []).map(x => ({ id: x.id || Date.now() + Math.floor(Math.random()*1000), N: x.N || x.n || "不明", P: safeNum(x.P !== undefined ? x.P : x.p), F: safeNum(x.F !== undefined ? x.F : x.f), C: safeNum(x.C !== undefined ? x.C : x.c), A: safeNum(x.A), Cal: Math.round(safeNum(x.Cal !== undefined ? x.Cal : x.cal)), U: x.U || x.u || "-", time: x.time || "朝" })) })); localStorage.setItem('tf_hist', JSON.stringify(fixedHist)); }
             if (data.my) { let rawMy = JSON.parse(data.my); let fixedMy = rawMy.map(x => ({ N: x.N || x.n || "不明", P: safeNum(x.P !== undefined ? x.P : x.p), F: safeNum(x.F !== undefined ? x.F : x.f), C: safeNum(x.C !== undefined ? x.C : x.c), A: safeNum(x.A), Cal: Math.round(safeNum(x.Cal !== undefined ? x.Cal : x.cal)) })); localStorage.setItem('tf_my', JSON.stringify(fixedMy)); }
             if(data.tg) { let tgData = JSON.parse(data.tg); if(tgData.alcMode===undefined) tgData.alcMode = false; if(tgData.autoReset===undefined) tgData.autoReset=false; localStorage.setItem('tf_tg', JSON.stringify(tgData)); }
             if(data.fav) localStorage.setItem('tf_fav', data.fav); if(data.date) localStorage.setItem('tf_date', data.date); if(data.body) localStorage.setItem('tf_body', data.body);
@@ -376,7 +372,9 @@ async function sendTamaChat() {
     
     const currentCal = lst.reduce((a,b)=>a+b.Cal,0); const currentP = lst.reduce((a,b)=>a+b.P,0); const currentF = lst.reduce((a,b)=>a+b.F,0); const currentC = lst.reduce((a,b)=>a+b.C,0);
     const d = new Date(); const timeStr = `${d.getHours()}時${d.getMinutes()}分`; const alcStr = TG.alcMode ? "ON" : "OFF";
-    const context = `【目標】Cal:${TG.cal} P:${TG.p.toFixed(0)} F:${TG.f.toFixed(0)} C:${TG.c.toFixed(0)}\n【現在摂取】Cal:${currentCal} P:${currentP.toFixed(0)} F:${currentF.toFixed(0)} C:${currentC.toFixed(0)}\n【現在時刻】${timeStr}\n【酒飲みモード】${alcStr}`;
+    
+    // ★大進化：たまちゃんにID付きの「現在の全リスト」を見せる
+    const context = `【目標】Cal:${TG.cal} P:${TG.p.toFixed(0)} F:${TG.f.toFixed(0)} C:${TG.c.toFixed(0)}\n【現在摂取】Cal:${currentCal} P:${currentP.toFixed(0)} F:${currentF.toFixed(0)} C:${currentC.toFixed(0)}\n【現在時刻】${timeStr}\n【酒飲みモード】${alcStr}\n【現在の今日の食事記録リスト(ID付き)】\n${lst.length > 0 ? lst.map(x => `[ID: ${x.id}] ${x.time} | ${x.N} (${x.Cal}kcal)`).join('\n') : 'まだ記録なし'}`;
     
     let historyText = chatHistory.map(m => `${m.role === 'user' ? 'あなた' : 'たまちゃん'}: ${m.text}`).join('\n'); let userPrefText = "";
     if (myFoods && myFoods.length > 0) { userPrefText += `\n【ユーザーのMy食品】\n${myFoods.map(x => `- ${x.N} (P${x.P} F${x.F} C${x.C} ${x.Cal}kcal)`).join('\n')}\n`; }
@@ -433,9 +431,23 @@ async function sendTamaChat() {
             msgEl.innerHTML += `<br><br><div style="display:flex; gap:10px; width:100%; margin-top:8px;"><div onclick="openChatGPTAndCopy('${unknownFood}')" style="cursor:pointer; flex:1; background-color:#10A37F; color:#FFFFFF; padding:12px 0; border-radius:10px; font-weight:600; font-size:13px; text-decoration:none; text-align:center; box-shadow:0 2px 5px rgba(0,0,0,0.15); display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.4; box-sizing:border-box; transition:opacity 0.2s;"><div style="display:flex; align-items:center; gap:6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M22.28 10.51a6.6 6.6 0 0 0-1.63-7.1 6.62 6.62 0 0 0-7.04-1.6 6.59 6.59 0 0 0-8.91 3.52 6.61 6.61 0 0 0-1.57 7.15 6.6 6.6 0 0 0 1.63 7.09 6.61 6.61 0 0 0 7.03 1.6 6.59 6.59 0 0 0 8.92-3.53 6.62 6.62 0 0 0 1.57-7.13zm-8.87 9.87a4.57 4.57 0 0 1-3.23-1.32l.24-.14 4.54-2.62a1.05 1.05 0 0 0 .52-.91v-5.26l1.79 1.03a4.59 4.59 0 0 1 1.7 5.91 4.58 4.58 0 0 1-5.56 3.31zm-7.66-2.5a4.59 4.59 0 0 1-1.3-3.28l.2.16 4.55 2.63a1.04 1.04 0 0 0 1.05 0l4.55-2.63-.9-1.55-4.54 2.62a2.66 2.66 0 0 1-2.66 0L4.1 11.66a4.58 4.58 0 0 1 1.65-5.38zm7.5-12.78a4.58 4.58 0 0 1 3.23 1.33l-.24.14-4.54 2.62a1.04 1.04 0 0 0-.52.9v5.27l-1.8-1.04A4.59 4.59 0 0 1 8.2 8.52a4.58 4.58 0 0 1 5.06-3.41zm1.25 5.86-1.8-1.04v-3.1a4.58 4.58 0 0 1 6.85-2.1L16.2 6.5v.01l-4.54 2.62a2.66 2.66 0 0 1-2.67 0l-2.6-1.5 2.6-4.5a4.59 4.59 0 0 1 5.51-1.6zm4.6 7.42a4.59 4.59 0 0 1 1.3 3.28l-.2-.16-4.55-2.63a1.04 1.04 0 0 0-1.05 0l-4.54 2.63.9 1.55 4.54-2.62a2.66 2.66 0 0 1 2.66 0l2.58 1.5A4.58 4.58 0 0 1 19.1 18.4zM12 14.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg><span>ChatGPT</span></div><span style="font-size:9.5px; font-weight:400; margin-top:3px; opacity:0.9;">(質問を自動コピー)</span></div><a href="https://www.google.com/search?q=${encodeURIComponent(unknownFood + ' カロリー PFC')}" target="_blank" style="flex:1; background-color:#FFFFFF; color:#3C4043; border:1px solid #DADCE0; padding:12px 0; border-radius:10px; font-weight:600; font-size:13px; text-decoration:none; text-align:center; box-shadow:0 2px 5px rgba(0,0,0,0.05); display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.4; box-sizing:border-box; transition:background-color 0.2s;"><div style="display:flex; align-items:center; gap:6px;"><svg width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg><span>Google</span></div><span style="font-size:9.5px; font-weight:400; margin-top:3px; color:#5F6368;">(自分で調べる)</span></a></div>`;
         }
 
-        if (autoFood) { lst.push({ N: "🤖 " + autoFood.N, P: autoFood.P, F: autoFood.F, C: autoFood.C, A: autoFood.A, Cal: autoFood.Cal, U: "AI", time: autoFood.time }); localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd(); window.scrollTo({ top: 0, behavior: 'smooth' }); } 
-        else if (deleteFood) { let foundIdx = -1; const searchTarget = deleteFood.replace(/🤖\s*/g, '').trim().toLowerCase(); for (let i = lst.length - 1; i >= 0; i--) { if (lst[i].N.replace(/🤖\s*/g, '').trim().toLowerCase().includes(searchTarget)) { foundIdx = i; break; } } if (foundIdx !== -1) { lst.splice(foundIdx, 1); localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd(); } }
-        else if (replaceFood && targetFoodName) { let foundIdx = -1; const searchTarget = targetFoodName.replace(/🤖\s*/g, '').trim().toLowerCase(); for (let i = lst.length - 1; i >= 0; i--) { if (lst[i].N.replace(/🤖\s*/g, '').trim().toLowerCase().includes(searchTarget)) { foundIdx = i; break; } } const newItem = { N: "🤖 " + replaceFood.N, P: replaceFood.P, F: replaceFood.F, C: replaceFood.C, A: replaceFood.A, Cal: replaceFood.Cal, U: "AI", time: replaceFood.time }; if (foundIdx !== -1) { lst[foundIdx] = newItem; } else { lst.push(newItem); } localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+        // ★大進化：IDベースの絶対間違えないパースシステム
+        if (autoFood) { 
+            lst.push({ id: Date.now() + Math.floor(Math.random()*1000), N: "🤖 " + autoFood.N, P: autoFood.P, F: autoFood.F, C: autoFood.C, A: autoFood.A, Cal: autoFood.Cal, U: "AI", time: autoFood.time }); 
+            localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd(); window.scrollTo({ top: 0, behavior: 'smooth' }); 
+        } 
+        else if (deleteFood) { 
+            const targetId = parseInt(deleteFood.replace(/[^\d]/g, ''), 10);
+            const foundIdx = lst.findIndex(item => item.id === targetId);
+            if (foundIdx !== -1) { lst.splice(foundIdx, 1); localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd(); } 
+        }
+        else if (replaceFood && targetFoodName) { 
+            const targetId = parseInt(targetFoodName.replace(/[^\d]/g, ''), 10);
+            const foundIdx = lst.findIndex(item => item.id === targetId);
+            const newItem = { id: targetId || Date.now(), N: "🤖 " + replaceFood.N, P: replaceFood.P, F: replaceFood.F, C: replaceFood.C, A: replaceFood.A, Cal: replaceFood.Cal, U: "AI", time: replaceFood.time }; 
+            if (foundIdx !== -1) { lst[foundIdx] = newItem; } else { lst.push({...newItem, id: Date.now()}); } 
+            localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd(); window.scrollTo({ top: 0, behavior: 'smooth' }); 
+        }
         
         chatHistory.push({ role: 'model', text: botReply }); if (chatHistory.length > 6) chatHistory.shift();
     } catch (error) { removeMsg(loadingId); addChatMsg('bot', '通信エラーだたま...。もう一度送ってたま！'); } finally { inputEl.value = ''; inputEl.disabled = false; }
