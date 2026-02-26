@@ -45,13 +45,12 @@
     --body: #2ecc71;      /* 体組成 */
 }
 
-/* ★タブバーの分、下部の余白を大きく確保（100px） */
 body {
     font-family: 'M PLUS Rounded 1c', sans-serif;
     background: var(--bg);
     color: var(--tx);
     margin: 0;
-    padding: 0 0 100px; 
+    padding: 0 0 100px; /* タブバーの分、下部余白 */
     line-height: 1.6;
     -webkit-tap-highlight-color: transparent;
 }
@@ -128,6 +127,24 @@ body {
 .btn-sub-act:active { background: #f0f0f0; transform: scale(0.97); }
 .btn-sub-act .icon { font-size: 24px; }
 
+/* ▼▼▼ 新UI：ユーティリティボタン (A案・4つ配置) ▼▼▼ */
+.utility-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 15px;
+    border-top: 1px dashed #ddd;
+    padding-top: 15px;
+}
+.btn-util {
+    background: #fff; border: 1px solid #ddd; border-radius: 8px;
+    padding: 10px 5px; font-size: 12px; font-weight: bold; color: #555;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.02); transition: 0.2s;
+}
+.btn-util:active { background: #f0f0f0; }
+.btn-util .icon { font-size: 16px; }
+
 /* 手打ち入力エリア (初期非表示) */
 .inp-sec { background: #fff; padding: 15px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; display: none; border: 2px solid var(--th); }
 label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; color: var(--th); }
@@ -137,7 +154,7 @@ label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; 
 .s-res { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #ddd; border-radius: 8px; max-height: 250px; overflow-y: auto; z-index: 100; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
 .s-item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 16px; }
 
-/* カテゴリ・リスト・プレビュー・登録 (既存CSS流用) */
+/* カテゴリ・リスト・プレビュー・登録 */
 .cat-grp { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .c-btn { padding: 10px 5px; font-size: 13px; border: 1px solid var(--th); background: #fff; color: var(--th); border-radius: 6px; cursor: pointer; font-weight: bold; text-align: center; }
 .c-btn.act { background: var(--th); color: #fff; }
@@ -221,22 +238,26 @@ label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; 
 .tab-item .label { font-size: 10px; font-weight: bold; }
 .tab-item.active { color: var(--th); }
 
-/* ▼▼▼ 新UI：たまちゃんフローティングボタン (タブバーの右上に配置) ▼▼▼ */
+/* ▼▼▼ 新UI：たまちゃんフローティングボタン (ピンクの丸枠 復活版！) ▼▼▼ */
 #tama-chat-btn {
     position: fixed; 
     bottom: calc(75px + env(safe-area-inset-bottom)); /* タブバーの上に安全に配置 */
     right: 15px; z-index: 9500; 
     display: flex; align-items: center; justify-content: center;
-    background-color: var(--th); width: 60px; height: 60px;
+    background-color: var(--th); /* ピンクの丸枠の正体 */
+    width: 60px; height: 60px;
     border-radius: 50%; box-shadow: 0 4px 15px rgba(245, 90, 148, 0.4);
     cursor: pointer; transition: transform 0.2s ease;
     user-select: none; -webkit-user-select: none;
-    overflow: hidden; border: 3px solid #fff;
 }
 #tama-chat-btn:active { transform: scale(0.92); }
 #tama-chat-btn img {
-    width: 100%; height: 100%; object-fit: cover; 
+    width: 44px; height: 44px; /* ピンク枠の中に収まるように少し小さく */
+    object-fit: cover; 
     border-radius: 50%; display: block; pointer-events: none;
+    border: 2px solid #fff; /* アイコンの周りの白い内枠 */
+    background-color: #fff;
+    flex-shrink: 0; /* iOSで見切れるバグを防止 */
 }
 
 /* チャットウィンドウ */
@@ -380,6 +401,21 @@ svg { width: 100%; height: 100%; overflow: visible; }
             </button>
             <input type="file" accept="image/*" capture="environment" id="dummy-camera-input" style="display:none;" onchange="alert('📷 AIカメラ予測機能は現在開発中だたま！\n次回のアップデートを楽しみにしててたま！')">
         </div>
+
+        <div class="utility-actions">
+            <button class="btn-util" onclick="cpRes()">
+                <span class="icon">📝</span>結果コピー
+            </button>
+            <button class="btn-util" onclick="rst()">
+                <span class="icon">🔄</span>保存・リセット
+            </button>
+            <button class="btn-util" onclick="window.open('https://docs.google.com/forms/d/e/1FAIpQLSem4li3oXO5_JFqTUUk40dM_Zej4WInhDPilGAIFUzU97opGg/viewform?usp=publish-editor', '_blank')">
+                <span class="icon">📮</span>ご意見・ご要望
+            </button>
+            <button class="btn-util" onclick="window.open('https://delishkitchen.tv/', '_blank')">
+                <span class="icon">🍳</span>レシピ検索
+            </button>
+        </div>
     </div>
     
     <div class="inp-sec" id="manual-inp-sec">
@@ -430,10 +466,6 @@ svg { width: 100%; height: 100%; overflow: visible; }
     <div id="hist-area" class="expand-area">
         <div class="expand-close" onclick="this.parentElement.style.display='none'">✕ 閉じる</div>
         <p style="text-align:center;font-weight:bold;color:var(--th);margin-top:0;">【過去の記録】</p>
-        <div class="h-btns" style="justify-content:center; margin-bottom:15px;">
-            <button class="h-btn t-copy" onclick="cpRes()" style="background:#34495e; padding:8px 15px; font-size:12px;">📝 今日の結果をコピー</button>
-            <button class="h-btn t-reset" onclick="rst()" style="background:#e74c3c; padding:8px 15px; font-size:12px;">🔄 保存してリセット</button>
-        </div>
         <div id="h-list"></div>
     </div>
     
