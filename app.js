@@ -455,39 +455,20 @@ async function sendTamaChat() {
     inputEl.disabled = false;
 }
 
-// ▼ 新UI ボイス専用画面からの送信 (★ここを超賢く修正)
+// ▼ 新UI ボイス専用画面からの送信
 window.sendVoiceChat = async function() {
     const inputEl = document.getElementById('v-chat-input'); const text = inputEl.value.trim(); if (!text) return;
     const vStatusText = document.getElementById('v-status-text');
     inputEl.value = ''; inputEl.disabled = true; 
-    vStatusText.innerText = `「${text}」\n\n🤔 考え中だたま...`;
+    vStatusText.innerText = `🤔 考え中だたま...`;
     
-    // 裏側のチャットウィンドウにも履歴を残す
+    // バックグラウンドでチャットウィンドウにも履歴として残す
     addChatMsg('user', text); const loadingId = addChatMsg('bot', 'たまちゃん考え中...');
     
-    // 処理結果をオブジェクトで受け取る
-    const result = await processAIChat(text, loadingId);
+    await processAIChat(text, loadingId, true);
     
-    vStatusText.innerText = result.reply || "処理が完了したたま！";
+    vStatusText.innerText = "マイクを押して続けて話せるたま！";
     inputEl.disabled = false;
-    
-    if (result.needsFollowUp || !result.isActionDone) {
-        // 【検索が必要な場合や雑談の時】
-        // 1.5秒だけボイス画面でテキストを見せた後、自動でチャットウィンドウに引き継ぐ！
-        setTimeout(() => { 
-            if(typeof closeVoiceUI === 'function') closeVoiceUI(); 
-            const win = document.getElementById('tama-chat-window');
-            const btn = document.getElementById('tama-chat-btn');
-            if(win) win.style.display = 'flex';
-            if(btn) btn.style.display = 'none';
-            const box = document.getElementById('chat-messages');
-            if(box) box.scrollTop = box.scrollHeight;
-        }, 1500);
-    } else {
-        // 【記録が成功した時】
-        // 2.5秒後にスマートにボイス画面を閉じるだけ
-        setTimeout(() => { if(typeof closeVoiceUI === 'function') closeVoiceUI(); }, 2500);
-    }
 }
 
 // AIとの通信コア処理（★戻り値をオブジェクトに変更）
@@ -512,7 +493,7 @@ async function processAIChat(text, loadingId) {
         if (matchedFoods.length > 0) cheatSheetText = `\n【カンペ(公式データ)】\n${matchedFoods.slice(0, 5).join('\n')}\n`;
     }
 
-    const prompt = `${typeof SYSTEM_PROMPT !== 'undefined' ? SYSTEM_PROMPT : 'あなたは「たまちゃん」です。'}\n=== 現在の状況 ===\n${context}\n=== 会話履歴 ===\n${historyText}\n${cheatSheetText}\n${userPrefText}\n=== ユーザーの発言 ===\n${text}`;
+   const prompt = `${typeof SYSTEM_PROMPT !== 'undefined' ? SYSTEM_PROMPT : 'あなたは「たまちゃん」です。'}\n=== 現在の状況 ===\n${context}\n=== 会話履歴 ===\n${historyText}\n${cheatSheetText}\n${userPrefText}\n=== ユーザーの発言 ===\n${text}\n\n【絶対ルール】\n・システムログ、AIとしての思考プロセス、プロンプトの解説は一切出力しないでください。\n・「たまちゃん」としての純粋なセリフと、必要なシステムコマンド（[DATA]など）のみを簡潔に出力してください。`;
 
     try {
         const response = await fetch(gasUrl, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
@@ -598,4 +579,5 @@ function getAppContextStr() {
     let t = { Cal: 0, P: 0, F: 0, C: 0 }; lst.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; });
     const remCal = TG.cal - t.Cal; return `現在の摂取: ${t.Cal}kcal (残り ${remCal}kcal)\n今日食べたもの: ${lst.map(x => x.N).join(', ') || 'なし'}`;
 }
+
 
