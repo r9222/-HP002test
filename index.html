@@ -669,17 +669,14 @@ function toggleManualPanel() {
     }
 }
 
-function openTabPanel(id) {
-    document.querySelectorAll('.expand-area').forEach(el => el.style.display = 'none');
-    const panel = document.getElementById(id);
-    panel.style.display = 'block';
-    if(typeof rHist === 'function' && id === 'hist-area') rHist();
-    if(typeof drawGraph === 'function' && id === 'graph-area') drawGraph('week', document.querySelector('.g-btn'));
-    if(typeof drawBodyGraph === 'function' && id === 'body-content') { drawBodyGraph('A', document.querySelector('.b-tog-btn')); renderBodyList(); }
-    setTimeout(() => panel.scrollIntoView({behavior: 'smooth', block: 'center'}), 100);
-}
-
 function openSaveModal() {
+    document.getElementById('reset-modal').style.display = 'flex';
+    // ★確実にトグルスイッチを最新の状態に同期
+    if (typeof TG !== 'undefined' && document.getElementById('auto-reset-chk')) {
+        document.getElementById('auto-reset-chk').checked = TG.autoReset;
+    }
+}
+function closeResetModal() {
     document.getElementById('reset-modal').style.display = 'flex';
     // ★バグ修正：モーダルを開くたびに、現在の設定とチェックボックスを同期する
     if (typeof TG !== 'undefined' && document.getElementById('auto-reset-chk')) {
@@ -731,6 +728,7 @@ if ('serviceWorker' in navigator) { window.addEventListener('load', function() {
 </script>
 </body>
 </html>
+
 
 
 
