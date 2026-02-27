@@ -631,6 +631,8 @@ svg { width: 100%; height: 100%; overflow: visible; }
 </div>
 
 <script>
+// ▼▼▼ index.html の一番下の <script> をこれで上書き ▼▼▼
+
 function toggleManualPanel() {
     const el = document.getElementById('manual-inp-sec');
     if (el.style.display === 'block') {
@@ -645,17 +647,18 @@ function openTabPanel(id) {
     document.querySelectorAll('.expand-area').forEach(el => el.style.display = 'none');
     const panel = document.getElementById(id);
     panel.style.display = 'block';
-    
-    // JSの実装と繋ぐための関数呼び出し（存在すれば）
     if(typeof rHist === 'function' && id === 'hist-area') rHist();
     if(typeof drawGraph === 'function' && id === 'graph-area') drawGraph('week', document.querySelector('.g-btn'));
     if(typeof drawBodyGraph === 'function' && id === 'body-content') { drawBodyGraph('A', document.querySelector('.b-tog-btn')); renderBodyList(); }
-    
     setTimeout(() => panel.scrollIntoView({behavior: 'smooth', block: 'center'}), 100);
 }
 
 function openSaveModal() {
     document.getElementById('reset-modal').style.display = 'flex';
+    // ★バグ修正：モーダルを開くたびに、現在の設定とチェックボックスを同期する
+    if (typeof TG !== 'undefined' && document.getElementById('auto-reset-chk')) {
+        document.getElementById('auto-reset-chk').checked = TG.autoReset;
+    }
 }
 function closeResetModal() {
     document.getElementById('reset-modal').style.display = 'none';
@@ -664,27 +667,34 @@ function closeResetModal() {
 function openVoiceUI() {
     const el = document.getElementById('voice-ui-window');
     el.style.display = 'flex';
-    // 少し遅らせてactiveクラスを付与し、下からスライドアップさせる
-    setTimeout(() => el.classList.add('active'), 10);
+    setTimeout(() => {
+        el.classList.add('active');
+        // ★バグ修正：画面が開いた瞬間に、自動でマイクをONにする！
+        if (typeof window.toggleVoiceMic === 'function' && typeof isRecording !== 'undefined' && !isRecording) {
+            window.toggleVoiceMic();
+        }
+    }, 10);
 }
+
 function closeVoiceUI() {
     const el = document.getElementById('voice-ui-window');
     el.classList.remove('active');
+    // ★バグ修正：画面を閉じたらマイクも強制終了する
+    if (typeof forceStopMic === 'function') forceStopMic();
     setTimeout(() => el.style.display = 'none', 300);
 }
 
-function toggleVoiceMic() {
-    const micBtn = document.getElementById('v-main-mic');
-    const statusText = document.getElementById('v-status-text');
-    
-    if(micBtn.classList.contains('listening')) {
-        micBtn.classList.remove('listening');
-        statusText.innerText = "マイクがオフだたま！";
-    } else {
-        micBtn.classList.add('listening');
-        statusText.innerText = "たまちゃんが聞いてるたま！";
+// ★バグ修正：ボイス画面でもEnterキーで送信できるようにする
+document.addEventListener('DOMContentLoaded', () => {
+    const vInput = document.getElementById('v-chat-input');
+    if (vInput) {
+        vInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+                if (typeof sendVoiceChat === 'function') sendVoiceChat();
+            }
+        });
     }
-}
+});
 </script>
 
 <script src="database.js"></script>
@@ -695,3 +705,4 @@ if ('serviceWorker' in navigator) { window.addEventListener('load', function() {
 </script>
 </body>
 </html>
+
