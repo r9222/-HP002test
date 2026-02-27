@@ -5,16 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
 <script>
-    // アクセスしてきたのがiOS（iPhone/iPad）かどうかを判定
+    // iOS判定とマニフェスト切り替え（JSはそのまま残します）
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-
-    // マニフェスト（アプリ設定ファイル）を動的に切り替え
     const manifestLink = document.createElement('link');
     manifestLink.rel = 'manifest';
     manifestLink.href = isIOS ? 'manifest-ios.json' : 'manifest.json';
     document.head.appendChild(manifestLink);
-
-    // iOS以外（Androidなど）の時だけ、アプリ化のメタタグを入れる
     if (!isIOS) {
         const meta = document.createElement('meta');
         meta.name = 'apple-mobile-web-app-capable';
@@ -28,7 +24,7 @@
 <title>たまフィットPFC</title>
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
 <style>
-/* ▼▼▼ デザイン設定 ▼▼▼ */
+/* ▼▼▼ 基本デザイン設定 ▼▼▼ */
 :root {
     --th: #f55a94;       /* ピンク */
     --bg: #fdf2f4;       /* 薄いピンク背景 */
@@ -42,7 +38,7 @@
     --add: #2ecc71;      /* 緑 */
     --gd: #f39c12;       /* 金 */
     --my: #9b59b6;       /* 紫 */
-    --body: #2ecc71;      /* 体組成 */
+    --body: #2ecc71;     /* 体組成 */
 }
 
 body {
@@ -65,14 +61,13 @@ body {
 .header h1 { color: #fff; font-size: 20px; margin: 0; font-weight: 900; display: flex; align-items: center; justify-content: center; }
 .container { max-width: 600px; margin: 0 auto; padding: 15px; }
 
-/* お知らせ */
+/* お知らせ＆目標設定＆メーター (既存のデザインそのまま) */
 .top-alert-box { background: #fff3cd; border: 2px solid #ffc107; padding: 10px; border-radius: 10px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); cursor: pointer; }
 .ta-title { font-weight: 900; color: #d35400; font-size: 13px; display: block; text-align: center; margin-bottom: 5px; }
 .ta-list { font-size: 12px; color: #333; line-height: 1.5; margin-bottom: 8px; font-weight: bold; }
 .ta-warn { font-size: 11px; color: #c0392b; font-weight: bold; margin-bottom: 8px; text-align: center; }
 .btn-import-huge { display: block; width: 100%; background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; border: none; padding: 10px; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; text-align: center; box-shadow: 0 2px 5px rgba(231,76,60,0.3); }
 
-/* 目標設定＆メーター */
 .tgt-sec { background: #fff; padding: 10px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #eee; }
 .tgt-tog { font-weight: bold; color: var(--th); cursor: pointer; text-align: center; }
 .tgt-btns { display: none; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 10px; }
@@ -107,46 +102,62 @@ body {
     box-shadow: 0 4px 15px rgba(0,0,0,0.06); margin-bottom: 20px;
     border: 1px solid #eee;
 }
+
+/* 音声入力 (メインボタン) */
 .btn-voice-main {
     display: flex; align-items: center; justify-content: center; gap: 10px;
     width: 100%; background: linear-gradient(135deg, #ff4757, #ff6b81);
     color: #fff; border: none; padding: 18px; border-radius: 12px;
     font-size: 18px; font-weight: bold; box-shadow: 0 4px 15px rgba(255, 71, 87, 0.3);
-    cursor: pointer; transition: transform 0.2s; margin-bottom: 12px;
+    cursor: pointer; transition: transform 0.2s; margin-bottom: 15px;
 }
 .btn-voice-main:active { transform: scale(0.97); }
-.btn-voice-main.recording { animation: pulse-voice 1.5s infinite; background: #ff4757; }
-@keyframes pulse-voice { 0% { box-shadow: 0 0 0 0 rgba(255,71,87,0.7); } 70% { box-shadow: 0 0 0 15px rgba(255,71,87,0); } 100% { box-shadow: 0 0 0 0 rgba(255,71,87,0); } }
 
+/* サブボタン群 (プレミアムカード型) */
 .sub-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .btn-sub-act {
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-    background: #f9f9f9; border: 2px solid #eaeaea; color: #444; border-radius: 12px;
-    padding: 15px 5px; font-weight: bold; font-size: 14px; cursor: pointer; transition: all 0.2s;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    background: #fff; border: none; border-radius: 12px;
+    padding: 15px 5px; font-weight: bold; font-size: 14px; cursor: pointer; 
+    transition: all 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.06);
 }
-.btn-sub-act:active { background: #f0f0f0; transform: scale(0.97); }
-.btn-sub-act .icon { font-size: 24px; }
+.btn-sub-act:active { transform: scale(0.97); box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
 
-/* ▼▼▼ 新UI：ユーティリティボタン (A案・4つ配置) ▼▼▼ */
+/* サブボタンのアクセントカラー */
+.btn-manual { color: #2c3e50; border-bottom: 3px solid #3498db; }
+.btn-manual .icon { font-size: 26px; color: #3498db; }
+.btn-camera { color: #2c3e50; border-bottom: 3px solid #9b59b6; }
+.btn-camera .icon { font-size: 26px; color: #9b59b6; }
+
+/* 切り取り線 */
+.util-divider {
+    border: none; border-top: 2px dashed #eee;
+    margin: 20px 0 15px;
+}
+
+/* ユーティリティボタン (正方形 1x4) */
 .utility-actions {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-top: 15px;
-    border-top: 1px dashed #ddd;
-    padding-top: 15px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
 }
 .btn-util {
-    background: #fff; border: 1px solid #ddd; border-radius: 8px;
-    padding: 10px 5px; font-size: 12px; font-weight: bold; color: #555;
-    display: flex; align-items: center; justify-content: center; gap: 5px;
-    cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.02); transition: 0.2s;
+    border: none; border-radius: 12px; aspect-ratio: 1 / 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    font-size: 11px; font-weight: 900; cursor: pointer; 
+    box-shadow: 0 3px 8px rgba(0,0,0,0.05); transition: transform 0.15s;
 }
-.btn-util:active { background: #f0f0f0; }
-.btn-util .icon { font-size: 16px; }
+.btn-util:active { transform: scale(0.95); }
+.btn-util .icon { font-size: 22px; }
+
+/* 各ユーティリティの専用カラー */
+.btn-copy { background: #34495e; color: #fff; } /* コピー：ネイビー */
+.btn-req { background: #f0f2f5; color: #555; }   /* ご要望：ライトグレー */
+.btn-recipe { background: #f1c40f; color: #5c3a21; } /* レシピ：イエロー×ブラウン */
+.btn-save { background: linear-gradient(135deg, var(--th), #ff8bb5); color: #fff; } /* 保存：特濃ピンク */
 
 /* 手打ち入力エリア (初期非表示) */
-.inp-sec { background: #fff; padding: 15px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; display: none; border: 2px solid var(--th); }
+.inp-sec { background: #fff; padding: 15px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; display: none; border: 2px solid #3498db; }
 label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; color: var(--th); }
 .s-box { position: relative; margin-bottom: 15px; }
 .s-inp { width: 100%; padding: 12px 12px 12px 40px; border-radius: 25px; border: 2px solid #ddd; background: var(--sb); font-size: 16px; box-sizing: border-box; }
@@ -154,7 +165,7 @@ label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; 
 .s-res { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #ddd; border-radius: 8px; max-height: 250px; overflow-y: auto; z-index: 100; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
 .s-item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 16px; }
 
-/* カテゴリ・リスト・プレビュー・登録 */
+/* カテゴリ・リスト・登録等 */
 .cat-grp { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .c-btn { padding: 10px 5px; font-size: 13px; border: 1px solid var(--th); background: #fff; color: var(--th); border-radius: 6px; cursor: pointer; font-weight: bold; text-align: center; }
 .c-btn.act { background: var(--th); color: #fff; }
@@ -209,16 +220,21 @@ label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; 
 .graph-sec { border-color: #f39c12; }
 .body-sec { border-color: var(--body); }
 
-/* モーダル */
+/* モーダル (日付・保存・自動設定) */
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center; }
-.modal-box { background: #fff; padding: 20px; border-radius: 12px; width: 80%; max-width: 300px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-.modal-title { font-weight: bold; margin-bottom: 15px; display: block; color: var(--th); font-size: 16px; }
-.modal-date { padding: 10px; font-size: 16px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 10px; width: 100%; box-sizing: border-box; }
+.modal-box { background: #fff; padding: 25px 20px; border-radius: 16px; width: 85%; max-width: 320px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+.modal-title { font-weight: 900; margin-bottom: 5px; display: block; color: var(--th); font-size: 18px; }
+.modal-subtitle { font-size: 12px; color: #666; margin-bottom: 15px; display: block; }
+.modal-date { padding: 12px; font-size: 16px; border: 2px solid #ddd; border-radius: 8px; margin-bottom: 15px; width: 100%; box-sizing: border-box; text-align: center; font-weight: bold; color: #333; }
+.auto-save-box { margin: 15px 0 20px; padding: 15px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 10px; text-align: left; }
+.auto-save-box label { display: flex; align-items: center; gap: 10px; margin: 0; cursor: pointer; font-size: 14px; font-weight: bold; color: #2c3e50; }
+.auto-save-box input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--add); }
 .modal-btns { display: flex; gap: 10px; }
-.m-btn { flex: 1; padding: 10px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; }
-.m-save { background: var(--th); color: #fff; } .m-cancel { background: #eee; color: #333; }
+.m-btn { flex: 1; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; transition: 0.2s; }
+.m-save { background: var(--th); color: #fff; } .m-save:active { transform: scale(0.95); }
+.m-cancel { background: #eee; color: #555; } .m-cancel:active { background: #e0e0e0; }
 
-/* ▼▼▼ 新UI：下部固定タブバー ▼▼▼ */
+/* ▼▼▼ 下部固定タブバー ▼▼▼ */
 .bottom-tab-bar {
     position: fixed; bottom: 0; left: 0; width: 100%;
     background: rgba(255, 255, 255, 0.95);
@@ -238,13 +254,13 @@ label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; 
 .tab-item .label { font-size: 10px; font-weight: bold; }
 .tab-item.active { color: var(--th); }
 
-/* ▼▼▼ 新UI：たまちゃんフローティングボタン (ピンクの丸枠 復活版！) ▼▼▼ */
+/* ▼▼▼ たまちゃんフローティングボタン (通常チャット用) ▼▼▼ */
 #tama-chat-btn {
     position: fixed; 
-    bottom: calc(75px + env(safe-area-inset-bottom)); /* タブバーの上に安全に配置 */
+    bottom: calc(75px + env(safe-area-inset-bottom)); 
     right: 15px; z-index: 9500; 
     display: flex; align-items: center; justify-content: center;
-    background-color: var(--th); /* ピンクの丸枠の正体 */
+    background-color: var(--th); 
     width: 60px; height: 60px;
     border-radius: 50%; box-shadow: 0 4px 15px rgba(245, 90, 148, 0.4);
     cursor: pointer; transition: transform 0.2s ease;
@@ -252,15 +268,14 @@ label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; 
 }
 #tama-chat-btn:active { transform: scale(0.92); }
 #tama-chat-btn img {
-    width: 44px; height: 44px; /* ピンク枠の中に収まるように少し小さく */
+    width: 44px; height: 44px; 
     object-fit: cover; 
     border-radius: 50%; display: block; pointer-events: none;
-    border: 2px solid #fff; /* アイコンの周りの白い内枠 */
-    background-color: #fff;
-    flex-shrink: 0; /* iOSで見切れるバグを防止 */
+    border: 2px solid #fff; background-color: #fff;
+    flex-shrink: 0; 
 }
 
-/* チャットウィンドウ */
+/* ▼▼▼ 通常チャットウィンドウ ▼▼▼ */
 #tama-chat-window {
     position: fixed; bottom: calc(85px + env(safe-area-inset-bottom)); right: 15px; 
     width: 350px; height: 500px; max-height: 65vh;
@@ -278,17 +293,35 @@ label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; 
 .msg.user .icon { display: none; }
 .msg .text { background: #fff; padding: 10px 14px; border-radius: 18px; border-top-left-radius: 2px; font-size: 0.95rem; line-height: 1.5; box-shadow: 0 1px 2px rgba(0,0,0,0.1); max-width: 80%; white-space: pre-wrap; word-break: break-word; }
 .msg.user .text { background: var(--th); color: white; border-top-left-radius: 18px; border-top-right-radius: 2px; }
-
 .chat-footer { padding: 10px; background: #fff; border-top: 1px solid #eee; display: flex; gap: 8px; align-items: center; }
-#mic-btn { background: #f0f2f5; color: #555; border-radius: 50%; width: 40px; height: 40px; border: none; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer; flex-shrink: 0; transition: all 0.3s ease; }
-#mic-btn.recording { background: #ff4757; color: white; animation: pulse 1.5s infinite; }
 #chat-input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 20px; outline: none; font-size: 14px; }
-#chat-input:disabled { background-color: #f9f9f9; color: #999; cursor: not-allowed; }
-.chat-footer #chat-send { padding: 0 16px; height: 40px; border-radius: 20px; background: var(--th); color: white; font-weight: bold; border: none; cursor: pointer; transition: 0.3s; }
-.chat-footer #chat-send:disabled { background-color: #ccc; cursor: not-allowed; }
-@media (max-width: 600px) { #tama-chat-window { width: 92%; right: 4%; } }
+.chat-footer #chat-send { padding: 0 16px; height: 40px; border-radius: 20px; background: var(--th); color: white; font-weight: bold; border: none; cursor: pointer; }
 
-/* CSSリセット一部（Graph, History, Body用）*/
+/* ▼▼▼ 新UI：ボイス専用UI (巨大マイク画面) ▼▼▼ */
+#voice-ui-window {
+    position: fixed; bottom: 0; left: 0; width: 100%; height: 75vh;
+    background: #fff; border-radius: 24px 24px 0 0;
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.15); z-index: 10500;
+    display: none; flex-direction: column; overflow: hidden;
+    transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+#voice-ui-window.active { transform: translateY(0); }
+.v-header { padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; }
+.v-title { font-weight: 900; font-size: 18px; color: #333; display: flex; align-items: center; gap: 8px; }
+.v-close { width: 32px; height: 32px; background: #f0f2f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #666; cursor: pointer; }
+.v-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fafafa; position: relative; }
+.v-status { font-size: 18px; font-weight: bold; color: var(--th); margin-bottom: 40px; z-index: 2; text-align: center; }
+.v-mic-container { position: relative; width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; z-index: 2; }
+.v-mic-btn { width: 90px; height: 90px; border-radius: 50%; background: linear-gradient(135deg, #ff4757, #ff6b81); color: #fff; font-size: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 10px 25px rgba(255, 71, 87, 0.4); transition: transform 0.2s; }
+.v-mic-btn:active { transform: scale(0.9); }
+/* 録音中の波紋アニメーション */
+.v-mic-btn.listening { animation: v-pulse 1.5s infinite; background: #ff4757; }
+@keyframes v-pulse { 0% { box-shadow: 0 0 0 0 rgba(255,71,87,0.6); } 70% { box-shadow: 0 0 0 30px rgba(255,71,87,0); } 100% { box-shadow: 0 0 0 0 rgba(255,71,87,0); } }
+.v-footer { padding: 15px 20px calc(15px + env(safe-area-inset-bottom)); background: #fff; border-top: 1px solid #eee; display: flex; gap: 10px; }
+.v-footer input { flex: 1; padding: 12px 15px; border: 1px solid #ddd; border-radius: 20px; font-size: 15px; outline: none; background: #f9f9f9; }
+.v-footer button { background: var(--th); color: #fff; border: none; padding: 0 20px; border-radius: 20px; font-weight: bold; cursor: pointer; }
+
+/* CSSリセット一部（Graph, History, Body用 - 既存まま）*/
 .g-btns { display: flex; justify-content: center; gap: 10px; margin-bottom: 10px; }
 .g-btn { padding: 5px 15px; border: 1px solid #ccc; border-radius: 20px; background: #eee; cursor: pointer; font-size: 12px; }
 .g-btn.act { background: var(--th); color: #fff; border-color: var(--th); }
@@ -345,8 +378,8 @@ svg { width: 100%; height: 100%; overflow: visible; }
         <span class="ta-title">🚨 新UIアップデート！ (タップで詳細)</span>
         <div class="ta-list" style="display:none;">
             ・🥚 レイアウトが最新アプリ風に大進化！<br>
-            ・🎤 「アクションパネル」で記録がさらに爆速に！<br>
-            ・📱 下部タブバー追加でどこからでもアクセス可能！
+            ・🎤 「ボイス専用UI」でハンズフリー記録が超快適に！<br>
+            ・💾 保存機能が自動化！(設定で変更可)
         </div>
         <div class="ta-warn">⚠️ 旧アプリをご利用の方へ<br>下のボタンからデータを引き継いでください。</div>
         <button class="btn-import-huge" onclick="event.stopPropagation(); document.getElementById('imp-file-top').click()">
@@ -385,35 +418,40 @@ svg { width: 100%; height: 100%; overflow: visible; }
     </div>
 
     <div class="main-actions">
-        <button class="btn-voice-main" onclick="startGlobalMic()">
-            🎤 音声でカンタン記録
+        <button class="btn-voice-main" onclick="openVoiceUI()">
+            🎤 音声でカンタン記録・相談
         </button>
         
         <div class="sub-actions">
-            <button class="btn-sub-act" onclick="toggleManualPanel()">
+            <button class="btn-sub-act btn-manual" onclick="toggleManualPanel()">
                 <div class="icon">⌨️</div>
                 <div>手打ち入力</div>
             </button>
-            
-            <button class="btn-sub-act" onclick="document.getElementById('dummy-camera-input').click()">
+            <button class="btn-sub-act btn-camera" onclick="document.getElementById('dummy-camera-input').click()">
                 <div class="icon">📷</div>
                 <div>カメラで予測</div>
             </button>
             <input type="file" accept="image/*" capture="environment" id="dummy-camera-input" style="display:none;" onchange="alert('📷 AIカメラ予測機能は現在開発中だたま！\n次回のアップデートを楽しみにしててたま！')">
         </div>
 
+        <hr class="util-divider">
+
         <div class="utility-actions">
-            <button class="btn-util" onclick="cpRes()">
-                <span class="icon">📝</span>結果コピー
+            <button class="btn-util btn-copy" onclick="cpRes()">
+                <div class="icon">📝</div>
+                <div>コピー</div>
             </button>
-            <button class="btn-util" onclick="rst()">
-                <span class="icon">🔄</span>保存・リセット
+            <button class="btn-util btn-req" onclick="window.open('https://docs.google.com/forms/d/e/1FAIpQLSem4li3oXO5_JFqTUUk40dM_Zej4WInhDPilGAIFUzU97opGg/viewform?usp=publish-editor', '_blank')">
+                <div class="icon">📮</div>
+                <div>ご要望</div>
             </button>
-            <button class="btn-util" onclick="window.open('https://docs.google.com/forms/d/e/1FAIpQLSem4li3oXO5_JFqTUUk40dM_Zej4WInhDPilGAIFUzU97opGg/viewform?usp=publish-editor', '_blank')">
-                <span class="icon">📮</span>ご意見・ご要望
+            <button class="btn-util btn-recipe" onclick="window.open('https://delishkitchen.tv/', '_blank')">
+                <div class="icon">🍳</div>
+                <div>レシピ</div>
             </button>
-            <button class="btn-util" onclick="window.open('https://delishkitchen.tv/', '_blank')">
-                <span class="icon">🍳</span>レシピ検索
+            <button class="btn-util btn-save" onclick="openSaveModal()">
+                <div class="icon">💾</div>
+                <div>日付･保存</div>
             </button>
         </div>
     </div>
@@ -510,17 +548,23 @@ svg { width: 100%; height: 100%; overflow: visible; }
 
 <div id="reset-modal" class="modal-overlay">
     <div class="modal-box">
-        <span class="modal-title">記録を保存して<br>リセットしますか？</span>
+        <span class="modal-title">記録の保存と日付</span>
+        <span class="modal-subtitle">過去の記録を追加したり、手動で保存できます。</span>
+        
+        <div style="text-align: left; margin-bottom: 5px; font-size: 12px; font-weight: bold; color: #555;">記録する日付を選択:</div>
         <input type="date" id="reset-date" class="modal-date">
-        <div style="margin: 15px 0; padding: 12px; background: #fff8e1; border: 2px solid #f39c12; border-radius: 8px; text-align: left;">
-            <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer;">
-                <input type="checkbox" id="auto-reset-chk" style="width: 18px; height: 18px; accent-color: #e67e22;" onchange="toggleAutoReset()">
-                <span style="font-size: 13px; font-weight: bold; color: #d35400;">毎日0時に自動保存する</span>
+        
+        <div class="auto-save-box">
+            <label>
+                <input type="checkbox" id="auto-reset-chk" checked onchange="toggleAutoReset()">
+                自動保存を有効にする (推奨)
             </label>
+            <div style="font-size: 11px; color: #888; margin-top: 6px; line-height: 1.4;">※オンにしておくと、毎日0時に自動で「昨日の記録」として保存され、画面がリセットされます。</div>
         </div>
+
         <div class="modal-btns">
-            <button class="m-btn m-cancel" onclick="closeResetModal()">キャンセル</button>
-            <button class="m-btn m-save" onclick="confirmReset()">保存する</button>
+            <button class="m-btn m-cancel" onclick="closeResetModal()">閉じる</button>
+            <button class="m-btn m-save" onclick="confirmReset()">手動で保存・リセット</button>
         </div>
     </div>
 </div>
@@ -537,13 +581,33 @@ svg { width: 100%; height: 100%; overflow: visible; }
     <div class="chat-body" id="chat-messages">
         <div class="msg bot">
             <div class="icon"><img src="new_tama.png"></div>
-            <div class="text">調子はどうたま？<br>食事の記録も、次のご飯の相談も、何でも聞いてくれたま！</div>
+            <div class="text">手打ちでの修正や、細かい相談はここで聞くたまよ！</div>
         </div>
     </div>
     <div class="chat-footer">
-        <button id="mic-btn" onclick="toggleMic()" title="音声で入力">🎤</button>
-        <input type="text" id="chat-input" placeholder="例: 夜ご飯なにがいい？" onkeypress="if(event.key === 'Enter' && !event.isComposing) sendTamaChat()">
+        <input type="text" id="chat-input" placeholder="メッセージを入力..." onkeypress="if(event.key === 'Enter' && !event.isComposing) sendTamaChat()">
         <button id="chat-send" onclick="sendTamaChat()">送信</button>
+    </div>
+</div>
+
+<div id="voice-ui-window">
+    <div class="v-header">
+        <div class="v-title">🎤 音声アシスタント</div>
+        <div class="v-close" onclick="closeVoiceUI()">×</div>
+    </div>
+    
+    <div class="v-body">
+        <div class="v-status" id="v-status-text">たまちゃんが聞いてるたま！</div>
+        <div class="v-mic-container">
+            <div class="v-mic-btn pulse-animation" id="v-main-mic" onclick="toggleVoiceMic()">
+                🎙️
+            </div>
+        </div>
+    </div>
+    
+    <div class="v-footer">
+        <input type="text" id="v-chat-input" placeholder="文字で補足入力もできるたま！">
+        <button onclick="sendVoiceChat()">送信</button>
     </div>
 </div>
 
@@ -582,12 +646,44 @@ function openTabPanel(id) {
     const panel = document.getElementById(id);
     panel.style.display = 'block';
     
-    // パネル専用の初期化関数を呼ぶ
-    if(id === 'hist-area') rHist();
-    if(id === 'graph-area') drawGraph('week', document.querySelector('.g-btn'));
-    if(id === 'body-content') { drawBodyGraph('A', document.querySelector('.b-tog-btn')); renderBodyList(); }
+    // JSの実装と繋ぐための関数呼び出し（存在すれば）
+    if(typeof rHist === 'function' && id === 'hist-area') rHist();
+    if(typeof drawGraph === 'function' && id === 'graph-area') drawGraph('week', document.querySelector('.g-btn'));
+    if(typeof drawBodyGraph === 'function' && id === 'body-content') { drawBodyGraph('A', document.querySelector('.b-tog-btn')); renderBodyList(); }
     
     setTimeout(() => panel.scrollIntoView({behavior: 'smooth', block: 'center'}), 100);
+}
+
+function openSaveModal() {
+    document.getElementById('reset-modal').style.display = 'flex';
+}
+function closeResetModal() {
+    document.getElementById('reset-modal').style.display = 'none';
+}
+
+function openVoiceUI() {
+    const el = document.getElementById('voice-ui-window');
+    el.style.display = 'flex';
+    // 少し遅らせてactiveクラスを付与し、下からスライドアップさせる
+    setTimeout(() => el.classList.add('active'), 10);
+}
+function closeVoiceUI() {
+    const el = document.getElementById('voice-ui-window');
+    el.classList.remove('active');
+    setTimeout(() => el.style.display = 'none', 300);
+}
+
+function toggleVoiceMic() {
+    const micBtn = document.getElementById('v-main-mic');
+    const statusText = document.getElementById('v-status-text');
+    
+    if(micBtn.classList.contains('listening')) {
+        micBtn.classList.remove('listening');
+        statusText.innerText = "マイクがオフだたま！";
+    } else {
+        micBtn.classList.add('listening');
+        statusText.innerText = "たまちゃんが聞いてるたま！";
+    }
 }
 </script>
 
