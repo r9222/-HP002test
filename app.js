@@ -22,7 +22,6 @@ window.onload = () => {
     const savedData = localStorage.getItem('tf_dat'); 
     if (savedData) {
         let parsed = JSON.parse(savedData);
-        // 古いデータにIDがない場合は自動付与する安全策
         lst = parsed.map((x, i) => ({...x, id: x.id || Date.now() + i}));
     }
     
@@ -47,7 +46,9 @@ window.onload = () => {
     if(document.getElementById('pfc-mode')) document.getElementById('pfc-mode').value = TG.mode;
     if(document.getElementById('cust-cal')) document.getElementById('cust-cal').value = TG.cal;
     
-    toggleAlcMode(true); setupChatEnterKey(); mkCat(); mkTgt(); upd(); ren();
+    toggleAlcMode(true); 
+    if(typeof setupChatEnterKey === 'function') setupChatEnterKey(); 
+    mkCat(); mkTgt(); upd(); ren();
 };
 
 function toggleAlcMode(isInit = false) {
@@ -157,7 +158,7 @@ function addM() {
 
 function ren() {
     const tlArea = document.getElementById('timeline-area'); if(!tlArea) return; tlArea.innerHTML = ""; let totalCal = 0;
-    const times = ["朝", "昼", "晩"]; const emojis = {"朝":"☀️", "昼":"☁️", "晩":"🌙"};
+    const times = ["朝", "昼", "晩", "間食"]; const emojis = {"朝":"☀️", "昼":"☁️", "晩":"🌙", "間食":"☕"};
     lst.forEach(x => { if (!times.includes(x.time)) x.time = "朝"; });
     times.forEach(t => {
         const items = lst.map((x, i) => ({...x, i})).filter(x => x.time === t); if (items.length === 0) return;
@@ -194,7 +195,7 @@ function confirmReset() {
     const dateStr = new Date(d).toLocaleDateString(); 
     svHist(dateStr, JSON.parse(JSON.stringify(lst))); 
     lst = []; sv(); ren(); upd(); closeResetModal(); 
-    showToast(`${dateStr} の記録として保存し、\n画面をリセットしたたま！`); 
+    if(typeof showToast === 'function') showToast(`${dateStr} の記録として保存し、\n画面をリセットしたたま！`); else alert(`${dateStr} の記録として保存し、リセットしました。`);
 }
 
 function svHist(d, l) { const i = hist.findIndex(h => h.d === d); if (i >= 0) hist.splice(i, 1); const t = { Cal: 0, P: 0, F: 0, C: 0 }; l.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; }); hist.unshift({ d: d, s: t, l: l }); if (hist.length > 30) hist.pop(); localStorage.setItem('tf_hist', JSON.stringify(hist)); }
@@ -209,8 +210,8 @@ function rHist() {
     });
 }
 
-function resHist(i) { if (!confirm("追加しますか？")) return; const addItems = hist[i].l.map((x, idx) => ({...x, id: Date.now() + idx})); lst = lst.concat(addItems); sv(); ren(); upd(); showToast("履歴から復元したたま！"); }
-function cpHist(i) { const h = hist[i]; let t = `【${h.d}】\n`; h.l.forEach(x => t += `${x.time?`[${x.time}] `:''}${x.N} ${x.Cal}kcal\n`); navigator.clipboard.writeText(t).then(() => showToast("コピー完了したたま！")); }
+function resHist(i) { if (!confirm("追加しますか？")) return; const addItems = hist[i].l.map((x, idx) => ({...x, id: Date.now() + idx})); lst = lst.concat(addItems); sv(); ren(); upd(); if(typeof showToast === 'function') showToast("履歴から復元したたま！"); else alert("復元しました"); }
+function cpHist(i) { const h = hist[i]; let t = `【${h.d}】\n`; h.l.forEach(x => t += `${x.time?`[${x.time}] `:''}${x.N} ${x.Cal}kcal\n`); navigator.clipboard.writeText(t).then(() => { if(typeof showToast === 'function') showToast("コピー完了したたま！"); else alert("コピーしました"); }); }
 function delHist(i) { if (!confirm("削除しますか？")) return; hist.splice(i, 1); localStorage.setItem('tf_hist', JSON.stringify(hist)); rHist(); }
 function togFav(i, el) { const x = fav.indexOf(i); if (x >= 0) fav.splice(x, 1); else fav.push(i); localStorage.setItem('tf_fav', JSON.stringify(fav)); el.classList.toggle('act'); }
 
@@ -266,7 +267,27 @@ function applyCust() {
     localStorage.setItem('tf_tg', JSON.stringify(TG)); upd(); toggleTgt(); mkTgt(); 
 }
 
-function cpRes() { let t = `【${new Date().toLocaleDateString()}】\n`; lst.forEach(x => t += `${x.time ? `[${x.time}] ` : ''}${x.N} ${x.Cal}kcal\n`); navigator.clipboard.writeText(t).then(() => showToast("📝 コピー完了！")); }
+function cpRes() { let t = `【${new Date().toLocaleDateString()}】\n`; lst.forEach(x => t += `${x.time ? `[${x.time}] ` : ''}${x.N} ${x.Cal}kcal\n`); navigator.clipboard.writeText(t).then(() => { if(typeof showToast === 'function') showToast("📝 コピー完了！"); }); }
+
+function importData(input) {
+    const file = input.files[0]; if (!file) return; const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result); const safeNum = (v) => isNaN(parseFloat(v)) ? 0 : parseFloat(v);
+            if (data.dat) { let rawLst = JSON.parse(data.dat); let fixedLst = rawLst.map(x => ({ id: x.id || Date.now() + Math.floor(Math.random()*1000), N: x.N || x.n || "不明な食品", P: safeNum(x.P !== undefined ? x.P : x.p), F: safeNum(x.F !== undefined ? x.F : x.f), C: safeNum(x.C !== undefined ? x.C : x.c), A: safeNum(x.A), Cal: Math.round(safeNum(x.Cal !== undefined ? x.Cal : x.cal)), U: x.U || x.u || "-", time: x.time || "朝" })); localStorage.setItem('tf_dat', JSON.stringify(fixedLst)); }
+            if (data.hist) { let rawHist = JSON.parse(data.hist); let fixedHist = rawHist.map(h => ({ d: h.d || "不明な日", s: { P: safeNum(h.s?.P !== undefined ? h.s.P : h.s?.p), F: safeNum(h.s?.F !== undefined ? h.s.F : h.s?.f), C: safeNum(h.s?.C !== undefined ? h.s.C : h.s?.c), Cal: Math.round(safeNum(h.s?.Cal !== undefined ? h.s.Cal : h.s?.cal)) }, l: (h.l || []).map(x => ({ id: x.id || Date.now() + Math.floor(Math.random()*1000), N: x.N || x.n || "不明", P: safeNum(x.P !== undefined ? x.P : x.p), F: safeNum(x.F !== undefined ? x.F : x.f), C: safeNum(x.C !== undefined ? x.C : x.c), A: safeNum(x.A), Cal: Math.round(safeNum(x.Cal !== undefined ? x.Cal : x.cal)), U: x.U || x.u || "-", time: x.time || "朝" })) })); localStorage.setItem('tf_hist', JSON.stringify(fixedHist)); }
+            if (data.my) { let rawMy = JSON.parse(data.my); let fixedMy = rawMy.map(x => ({ N: x.N || x.n || "不明", P: safeNum(x.P !== undefined ? x.P : x.p), F: safeNum(x.F !== undefined ? x.F : x.f), C: safeNum(x.C !== undefined ? x.C : x.c), A: safeNum(x.A), Cal: Math.round(safeNum(x.Cal !== undefined ? x.Cal : x.cal)) })); localStorage.setItem('tf_my', JSON.stringify(fixedMy)); }
+            if(data.tg) { let tgData = JSON.parse(data.tg); if(tgData.alcMode===undefined) tgData.alcMode = false; if(tgData.autoReset===undefined) tgData.autoReset=true; localStorage.setItem('tf_tg', JSON.stringify(tgData)); }
+            if(data.fav) localStorage.setItem('tf_fav', data.fav); if(data.date) localStorage.setItem('tf_date', data.date); if(data.body) localStorage.setItem('tf_body', data.body);
+            alert("✅ データの修復とお引越しが完了しました！リロードします。"); location.reload();
+        } catch (err) { alert("ファイルが正しくありません。エラー: " + err.message); }
+    }; reader.readAsText(file);
+}
+
+function exportData() {
+    const data = { dat: localStorage.getItem('tf_dat'), tg: localStorage.getItem('tf_tg'), fav: localStorage.getItem('tf_fav'), my: localStorage.getItem('tf_my'), hist: localStorage.getItem('tf_hist'), date: localStorage.getItem('tf_date'), body: localStorage.getItem('tf_body') };
+    const blob = new Blob([JSON.stringify(data)], {type: "text/json"}); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `pfc_backup_${new Date().toISOString().slice(0,10)}.json`; link.click();
+}
 
 function drawGraph(type, btn) {
     document.querySelectorAll('.g-btn').forEach(b => b.classList.remove('act')); if(btn) btn.classList.add('act'); const box = document.getElementById('chart-box'); if(!box) return; box.innerHTML = ''; let data = []; const today = new Date();
@@ -286,7 +307,7 @@ function saveBody() {
     const d = document.getElementById('b-date').value; const w = parseNum(document.getElementById('b-weight').value); const f = parseNum(document.getElementById('b-fat').value); const waist = parseNum(document.getElementById('b-waist').value);
     if(!d || (!w && !f && !waist)) return alert("日付と数値を入力してください");
     const idx = bodyData.findIndex(x => x.date === d); const rec = { date: d, w: w, f: f, waist: waist }; if(idx >= 0) bodyData[idx] = rec; else bodyData.push(rec);
-    bodyData.sort((a,b) => new Date(a.date) - new Date(b.date)); localStorage.setItem('tf_body', JSON.stringify(bodyData)); showToast("📉 体組成を記録したたま！"); document.querySelector('.body-inp-grid').classList.remove('editing-mode'); document.getElementById('b-weight').value = ''; document.getElementById('b-fat').value = ''; document.getElementById('b-waist').value = ''; drawBodyGraph('A', document.querySelector('.b-tog-btn')); renderBodyList();
+    bodyData.sort((a,b) => new Date(a.date) - new Date(b.date)); localStorage.setItem('tf_body', JSON.stringify(bodyData)); if(typeof showToast === 'function') showToast("📉 体組成を記録したたま！"); document.querySelector('.body-inp-grid').classList.remove('editing-mode'); document.getElementById('b-weight').value = ''; document.getElementById('b-fat').value = ''; document.getElementById('b-waist').value = ''; drawBodyGraph('A', document.querySelector('.b-tog-btn')); renderBodyList();
 }
 function editBody(i) { const d = bodyData[i]; document.getElementById('b-date').value = d.date; document.getElementById('b-weight').value = d.w || ''; document.getElementById('b-fat').value = d.f || ''; document.getElementById('b-waist').value = d.waist || ''; const grid = document.querySelector('.body-inp-grid'); grid.scrollIntoView({ behavior: 'smooth', block: 'center' }); grid.classList.add('editing-mode'); }
 function deleteBody(i) { if(!confirm("この記録を削除しますか？")) return; bodyData.splice(i, 1); localStorage.setItem('tf_body', JSON.stringify(bodyData)); drawBodyGraph('A', document.querySelector('.b-tog-btn')); renderBodyList(); }
@@ -313,11 +334,14 @@ function drawBodyGraph(mode, btn) {
     box.appendChild(svg);
 }
 
+// ----------------------------------------------------
+// ここから下（AI通信、マイク制御、UI操作など）は後半へ続く！
+// ----------------------------------------------------
 
-// ▼▼▼ API通信・マイク・AI制御（大進化） ▼▼▼
+// ▼▼▼ API通信・外部連携・マイク・AI制御 ▼▼▼
 
 const gasUrl = "https://script.google.com/macros/s/AKfycbxfD_oYqqac1rG0U1Po9cWiHGq1jslASe2GQhEmVtQj8RjDTeIvVtHyA8tpeKHQhzoN/exec";
-let recognition; let isRecording = false; let activeMicTarget = null; // 'global' or 'chat'
+let recognition; let isRecording = false; let activeMicTarget = null; // 'voice' or 'chat'
 
 const forceStopMic = () => {
     if (isRecording) { 
@@ -326,7 +350,7 @@ const forceStopMic = () => {
         const vStatusText = document.getElementById('v-status-text');
         const cMicBtn = document.getElementById('mic-btn');
         
-        if(vMicBtn) { vMicBtn.classList.remove('listening'); vStatusText.innerText = "マイクがオフだたま！"; }
+        if(vMicBtn) { vMicBtn.classList.remove('listening'); if(vStatusText) vStatusText.innerText = "マイクがオフだたま！"; }
         if(cMicBtn) cMicBtn.classList.remove('recording');
         
         try { if (recognition) recognition.abort(); } catch(e) {} 
@@ -341,6 +365,21 @@ function showToast(msg) {
     if (!toast) { toast = document.createElement('div'); toast.id = 'tama-toast'; toast.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.85); color:#fff; padding:12px 20px; border-radius:30px; font-size:13px; z-index:999999; text-align:center; box-shadow:0 4px 15px rgba(0,0,0,0.3); transition: opacity 0.3s ease; font-weight:bold; white-space:pre-wrap; width:max-content; max-width:90%; pointer-events:none;'; document.body.appendChild(toast); }
     toast.innerText = msg; toast.style.opacity = '1'; toast.style.display = 'block'; setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.style.display = 'none', 300); }, 3000);
 }
+
+window.openRecipe = function(keywords, type) {
+    const q = encodeURIComponent(keywords); let url = "";
+    if(type === 'delish') url = `https://delishkitchen.tv/search?q=${q}`;
+    if(type === 'nadia') url = `https://oceans-nadia.com/search?q=${q}`;
+    if(type === 'youtube') url = `https://www.youtube.com/results?search_query=${q}+レシピ`;
+    window.open(url, "_blank");
+};
+
+window.openChatGPTAndCopy = function(foodName) {
+    const text = `「${foodName}」の一般的なカロリーと、PFC（タンパク質・脂質・炭水化物）の数値を調べてください。\n\nまた、私が食事管理アプリにそのままコピペして記録できるよう、回答の最後に以下のフォーマットの〇〇に数値を埋めたテキストを、ワンタップでコピーできるように「マークダウンのコードブロック（\`\`\`）」で囲んで出力してください。\n\n\`\`\`\n${foodName}を食べたよ！カロリーは〇〇kcal、Pは〇〇g、Fは〇〇g、Cは〇〇gだって！\n\`\`\``;
+    const textArea = document.createElement("textarea"); textArea.value = text; textArea.style.position = 'fixed'; textArea.style.top = '0'; textArea.style.left = '0'; textArea.style.opacity = '0'; document.body.appendChild(textArea); textArea.focus(); textArea.select(); try { document.execCommand('copy'); } catch (err) {} document.body.removeChild(textArea);
+    if (navigator.clipboard) { navigator.clipboard.writeText(text).catch(()=>{}); }
+    showToast("🤖 質問文をコピーしたたま！\nそのまま貼り付けて聞いてね！"); setTimeout(() => { window.open("https://chatgpt.com/", "_blank"); }, 300);
+};
 
 // 🎤 通常チャット用マイク
 function toggleMic() {
@@ -384,7 +423,7 @@ function startRecognition(onStartCallback, onResultCallback) {
 async function sendTamaChat() {
     const inputEl = document.getElementById('chat-input'); const text = inputEl.value.trim(); if (!text) return;
     addChatMsg('user', text); inputEl.value = ''; inputEl.disabled = true; const loadingId = addChatMsg('bot', 'たまちゃん考え中...');
-    await processAIChat(text, loadingId);
+    await processAIChat(text, loadingId, false);
     inputEl.disabled = false;
 }
 
@@ -403,8 +442,8 @@ window.sendVoiceChat = async function() {
     vStatusText.innerText = replyText || "処理が完了したたま！";
     inputEl.disabled = false;
     
-    // 成功したら数秒後にボイス画面を閉じる（任意）
-    setTimeout(() => { closeVoiceUI(); }, 3000);
+    // 成功したら数秒後にボイス画面を閉じる
+    setTimeout(() => { if(typeof closeVoiceUI === 'function') closeVoiceUI(); }, 3000);
 }
 
 // AIとの通信コア処理（統合）
@@ -460,6 +499,7 @@ async function processAIChat(text, loadingId, isVoiceMode = false) {
             msgEl.innerHTML += `<br><br><div style="display:flex; flex-direction:column; gap:6px; width:100%; margin-top:8px;">
                 <div onclick="openRecipe('${recipeKeywords}', 'delish')" style="cursor:pointer; background-color:#FFB600; color:#FFFFFF; padding:8px; border-radius:8px; font-weight:bold; font-size:12px; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.1);">🍳 デリッシュキッチン で見る</div>
                 <div onclick="openRecipe('${recipeKeywords}', 'nadia')" style="cursor:pointer; background-color:#65C1A6; color:#FFFFFF; padding:8px; border-radius:8px; font-weight:bold; font-size:12px; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.1);">👨‍🍳 Nadia(プロのレシピ) で見る</div>
+                <div onclick="openRecipe('${recipeKeywords}', 'youtube')" style="cursor:pointer; background-color:#FF0000; color:#FFFFFF; padding:8px; border-radius:8px; font-weight:bold; font-size:12px; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.1);">▶️ YouTube で調理法を見る</div>
             </div>`;
         }
 
