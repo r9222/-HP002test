@@ -337,11 +337,35 @@ function drawBodyGraph(mode, btn) {
 // ----------------------------------------------------
 // ここから下（AI通信、マイク制御、UI操作など）は後半へ続く！
 // ----------------------------------------------------
-
 // ▼▼▼ API通信・外部連携・マイク・AI制御 ▼▼▼
 
 const gasUrl = "https://script.google.com/macros/s/AKfycbxfD_oYqqac1rG0U1Po9cWiHGq1jslASe2GQhEmVtQj8RjDTeIvVtHyA8tpeKHQhzoN/exec";
 let recognition; let isRecording = false; let activeMicTarget = null; // 'voice' or 'chat'
+
+// ★欠落していたチャット開閉関数を復活
+function toggleChat() { 
+    const win = document.getElementById('tama-chat-window'); 
+    const btn = document.getElementById('tama-chat-btn'); 
+    if (!win || !btn) return;
+    if (win.style.display === 'flex') { 
+        win.style.display = 'none'; 
+        btn.style.display = 'flex'; 
+    } else { 
+        win.style.display = 'flex'; 
+        btn.style.display = 'none'; 
+        const box = document.getElementById('chat-messages');
+        if(box) box.scrollTop = box.scrollHeight; // 開いた時に一番下にスクロール
+    } 
+}
+
+// ★欠落していたEnterキー送信関数を復活
+function setupChatEnterKey() { 
+    const input = document.getElementById('chat-input'); 
+    if (!input) return; 
+    input.addEventListener('keypress', (e) => { 
+        if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) sendTamaChat(); 
+    }); 
+}
 
 const forceStopMic = () => {
     if (isRecording) { 
@@ -423,31 +447,47 @@ function startRecognition(onStartCallback, onResultCallback) {
 async function sendTamaChat() {
     const inputEl = document.getElementById('chat-input'); const text = inputEl.value.trim(); if (!text) return;
     addChatMsg('user', text); inputEl.value = ''; inputEl.disabled = true; const loadingId = addChatMsg('bot', 'たまちゃん考え中...');
-    await processAIChat(text, loadingId, false);
+    await processAIChat(text, loadingId);
     inputEl.disabled = false;
 }
 
-// ▼ 新UI ボイス専用画面からの送信
+// ▼ 新UI ボイス専用画面からの送信 (★ここを超賢く修正)
 window.sendVoiceChat = async function() {
     const inputEl = document.getElementById('v-chat-input'); const text = inputEl.value.trim(); if (!text) return;
     const vStatusText = document.getElementById('v-status-text');
     inputEl.value = ''; inputEl.disabled = true; 
     vStatusText.innerText = `「${text}」\n\n🤔 考え中だたま...`;
     
-    // バックグラウンドでチャットウィンドウにも履歴として残す
+    // 裏側のチャットウィンドウにも履歴を残す
     addChatMsg('user', text); const loadingId = addChatMsg('bot', 'たまちゃん考え中...');
     
-    const replyText = await processAIChat(text, loadingId, true);
+    // 処理結果をオブジェクトで受け取る
+    const result = await processAIChat(text, loadingId);
     
-    vStatusText.innerText = replyText || "処理が完了したたま！";
+    vStatusText.innerText = result.reply || "処理が完了したたま！";
     inputEl.disabled = false;
     
-    // 成功したら数秒後にボイス画面を閉じる
-    setTimeout(() => { if(typeof closeVoiceUI === 'function') closeVoiceUI(); }, 3000);
+    if (result.needsFollowUp || !result.isActionDone) {
+        // 【検索が必要な場合や雑談の時】
+        // 1.5秒だけボイス画面でテキストを見せた後、自動でチャットウィンドウに引き継ぐ！
+        setTimeout(() => { 
+            if(typeof closeVoiceUI === 'function') closeVoiceUI(); 
+            const win = document.getElementById('tama-chat-window');
+            const btn = document.getElementById('tama-chat-btn');
+            if(win) win.style.display = 'flex';
+            if(btn) btn.style.display = 'none';
+            const box = document.getElementById('chat-messages');
+            if(box) box.scrollTop = box.scrollHeight;
+        }, 1500);
+    } else {
+        // 【記録が成功した時】
+        // 2.5秒後にスマートにボイス画面を閉じるだけ
+        setTimeout(() => { if(typeof closeVoiceUI === 'function') closeVoiceUI(); }, 2500);
+    }
 }
 
-// AIとの通信コア処理（統合）
-async function processAIChat(text, loadingId, isVoiceMode = false) {
+// AIとの通信コア処理（★戻り値をオブジェクトに変更）
+async function processAIChat(text, loadingId) {
     const currentCal = lst.reduce((a,b)=>a+b.Cal,0); const currentP = lst.reduce((a,b)=>a+b.P,0); const currentF = lst.reduce((a,b)=>a+b.F,0); const currentC = lst.reduce((a,b)=>a+b.C,0);
     const d = new Date(); const timeStr = `${d.getHours()}時${d.getMinutes()}分`; const alcStr = TG.alcMode ? "ON" : "OFF";
     
@@ -476,6 +516,7 @@ async function processAIChat(text, loadingId, isVoiceMode = false) {
         rawText = rawText.replace(/\*\*/g, "").replace(/^たまちゃん:\s*/i, "").replace(/たまちゃんの返答:/g, "").replace(/たまちゃん:\s*/i, ""); 
 
         let botReply = ""; let autoFood = null; let replaceFood = null; let targetFoodName = null; let deleteFood = null; let unknownFood = null; let recipeKeywords = null;
+        let isActionDone = false;
         
         const recMatch = rawText.match(/\[RECIPE\]\s*(.+)/);
         if (recMatch) { recipeKeywords = recMatch[1].trim(); rawText = rawText.replace(recMatch[0], ""); }
@@ -484,17 +525,18 @@ async function processAIChat(text, loadingId, isVoiceMode = false) {
 
         if (dataIdx !== -1) {
             botReply = rawText.substring(0, dataIdx).trim(); let dStr = rawText.substring(dataIdx + 6).trim(); let parts = dStr.split('|'); let tZone = parts.length > 1 ? parts[0].trim() : getAutoTime(); let fStr = parts.length > 1 ? parts[1].trim() : parts[0].trim(); let d = fStr.split(/,|、/); 
-            if (d.length >= 4) { let p = parseFloat(d[1].replace(/[^\d.]/g, "")) || 0; let f = parseFloat(d[2].replace(/[^\d.]/g, "")) || 0; let c = parseFloat(d[3].replace(/[^\d.]/g, "")) || 0; let a = d.length >= 5 ? (parseFloat(d[4].replace(/[^\d.]/g, "")) || 0) : 0; let trueCal = Math.round(p * 4 + f * 9 + c * 4 + a * 7); autoFood = { N: d[0].trim(), P: p, F: f, C: c, A: a, Cal: trueCal, time: tZone }; }
+            if (d.length >= 4) { let p = parseFloat(d[1].replace(/[^\d.]/g, "")) || 0; let f = parseFloat(d[2].replace(/[^\d.]/g, "")) || 0; let c = parseFloat(d[3].replace(/[^\d.]/g, "")) || 0; let a = d.length >= 5 ? (parseFloat(d[4].replace(/[^\d.]/g, "")) || 0) : 0; let trueCal = Math.round(p * 4 + f * 9 + c * 4 + a * 7); autoFood = { N: d[0].trim(), P: p, F: f, C: c, A: a, Cal: trueCal, time: tZone }; isActionDone = true; }
         } else if (repIdx !== -1) {
             botReply = rawText.substring(0, repIdx).trim(); let dStr = rawText.substring(repIdx + 9).trim(); let parts = dStr.split('|');
-            if (parts.length >= 3) { targetFoodName = parts[0].trim(); let tZone = parts[1].trim(); let d = parts[2].split(/,|、/); if (d.length >= 4) { let p = parseFloat(d[1].replace(/[^\d.]/g, "")) || 0; let f = parseFloat(d[2].replace(/[^\d.]/g, "")) || 0; let c = parseFloat(d[3].replace(/[^\d.]/g, "")) || 0; let a = d.length >= 5 ? (parseFloat(d[4].replace(/[^\d.]/g, "")) || 0) : 0; let trueCal = Math.round(p * 4 + f * 9 + c * 4 + a * 7); replaceFood = { N: d[0].trim(), P: p, F: f, C: c, A: a, Cal: trueCal, time: tZone }; } }
-        } else if (delIdx !== -1) { botReply = rawText.substring(0, delIdx).trim(); deleteFood = rawText.substring(delIdx + 8).trim(); } 
+            if (parts.length >= 3) { targetFoodName = parts[0].trim(); let tZone = parts[1].trim(); let d = parts[2].split(/,|、/); if (d.length >= 4) { let p = parseFloat(d[1].replace(/[^\d.]/g, "")) || 0; let f = parseFloat(d[2].replace(/[^\d.]/g, "")) || 0; let c = parseFloat(d[3].replace(/[^\d.]/g, "")) || 0; let a = d.length >= 5 ? (parseFloat(d[4].replace(/[^\d.]/g, "")) || 0) : 0; let trueCal = Math.round(p * 4 + f * 9 + c * 4 + a * 7); replaceFood = { N: d[0].trim(), P: p, F: f, C: c, A: a, Cal: trueCal, time: tZone }; isActionDone = true; } }
+        } else if (delIdx !== -1) { botReply = rawText.substring(0, delIdx).trim(); deleteFood = rawText.substring(delIdx + 8).trim(); isActionDone = true; } 
         else if (unkIdx !== -1) { botReply = rawText.substring(0, unkIdx).trim(); unknownFood = rawText.substring(unkIdx + 9).trim(); } 
         else { botReply = rawText.trim(); }
 
         removeMsg(loadingId); const newMsgId = addChatMsg('bot', botReply);
 
-        if (recipeKeywords && !isVoiceMode) {
+        // ボイスモードかどうかに関わらず、裏のチャットウィンドウには必ずボタンを描画しておく！
+        if (recipeKeywords) {
             const msgEl = document.getElementById(newMsgId).querySelector('.text');
             msgEl.innerHTML += `<br><br><div style="display:flex; flex-direction:column; gap:6px; width:100%; margin-top:8px;">
                 <div onclick="openRecipe('${recipeKeywords}', 'delish')" style="cursor:pointer; background-color:#FFB600; color:#FFFFFF; padding:8px; border-radius:8px; font-weight:bold; font-size:12px; text-align:center; box-shadow:0 2px 4px rgba(0,0,0,0.1);">🍳 デリッシュキッチン で見る</div>
@@ -503,7 +545,7 @@ async function processAIChat(text, loadingId, isVoiceMode = false) {
             </div>`;
         }
 
-        if (unknownFood && !isVoiceMode) {
+        if (unknownFood) {
             const msgEl = document.getElementById(newMsgId).querySelector('.text');
             msgEl.innerHTML += `<br><br><div style="display:flex; gap:10px; width:100%; margin-top:8px;"><div onclick="openChatGPTAndCopy('${unknownFood}')" style="cursor:pointer; flex:1; background-color:#10A37F; color:#FFFFFF; padding:12px 0; border-radius:10px; font-weight:600; font-size:13px; text-decoration:none; text-align:center; box-shadow:0 2px 5px rgba(0,0,0,0.15); display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.4; box-sizing:border-box; transition:opacity 0.2s;"><div style="display:flex; align-items:center; gap:6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M22.28 10.51a6.6 6.6 0 0 0-1.63-7.1 6.62 6.62 0 0 0-7.04-1.6 6.59 6.59 0 0 0-8.91 3.52 6.61 6.61 0 0 0-1.57 7.15 6.6 6.6 0 0 0 1.63 7.09 6.61 6.61 0 0 0 7.03 1.6 6.59 6.59 0 0 0 8.92-3.53 6.62 6.62 0 0 0 1.57-7.13zm-8.87 9.87a4.57 4.57 0 0 1-3.23-1.32l.24-.14 4.54-2.62a1.05 1.05 0 0 0 .52-.91v-5.26l1.79 1.03a4.59 4.59 0 0 1 1.7 5.91 4.58 4.58 0 0 1-5.56 3.31zm-7.66-2.5a4.59 4.59 0 0 1-1.3-3.28l.2.16 4.55 2.63a1.04 1.04 0 0 0 1.05 0l4.55-2.63-.9-1.55-4.54 2.62a2.66 2.66 0 0 1-2.66 0L4.1 11.66a4.58 4.58 0 0 1 1.65-5.38zm7.5-12.78a4.58 4.58 0 0 1 3.23 1.33l-.24.14-4.54 2.62a1.04 1.04 0 0 0-.52.9v5.27l-1.8-1.04A4.59 4.59 0 0 1 8.2 8.52a4.58 4.58 0 0 1 5.06-3.41zm1.25 5.86-1.8-1.04v-3.1a4.58 4.58 0 0 1 6.85-2.1L16.2 6.5v.01l-4.54 2.62a2.66 2.66 0 0 1-2.67 0l-2.6-1.5 2.6-4.5a4.59 4.59 0 0 1 5.51-1.6zm4.6 7.42a4.59 4.59 0 0 1 1.3 3.28l-.2-.16-4.55-2.63a1.04 1.04 0 0 0-1.05 0l-4.54 2.63.9 1.55 4.54-2.62a2.66 2.66 0 0 1 2.66 0l2.58 1.5A4.58 4.58 0 0 1 19.1 18.4zM12 14.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg><span>ChatGPT</span></div><span style="font-size:9.5px; font-weight:400; margin-top:3px; opacity:0.9;">(質問を自動コピー)</span></div><a href="https://www.google.com/search?q=${encodeURIComponent(unknownFood + ' カロリー PFC')}" target="_blank" style="flex:1; background-color:#FFFFFF; color:#3C4043; border:1px solid #DADCE0; padding:12px 0; border-radius:10px; font-weight:600; font-size:13px; text-decoration:none; text-align:center; box-shadow:0 2px 5px rgba(0,0,0,0.05); display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.4; box-sizing:border-box; transition:background-color 0.2s;"><div style="display:flex; align-items:center; gap:6px;"><svg width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg><span>Google</span></div><span style="font-size:9.5px; font-weight:400; margin-top:3px; color:#5F6368;">(自分で調べる)</span></a></div>`;
         }
@@ -526,13 +568,15 @@ async function processAIChat(text, loadingId, isVoiceMode = false) {
         }
         
         chatHistory.push({ role: 'model', text: botReply }); if (chatHistory.length > 6) chatHistory.shift();
-        return botReply;
+        
+        // オブジェクトで返し、sendVoiceChat側に「次どうするか」を判断させる
+        return { reply: botReply, isActionDone: isActionDone, needsFollowUp: !!(unknownFood || recipeKeywords) };
 
     } catch (error) { 
         removeMsg(loadingId); 
         const errMsg = '通信エラーだたま...。もう一度送ってたま！';
         if(!isVoiceMode) addChatMsg('bot', errMsg); 
-        return errMsg;
+        return { reply: errMsg, isActionDone: false, needsFollowUp: false };
     }
 }
 
