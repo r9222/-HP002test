@@ -342,19 +342,23 @@ function drawBodyGraph(mode, btn) {
 const gasUrl = "https://script.google.com/macros/s/AKfycbxfD_oYqqac1rG0U1Po9cWiHGq1jslASe2GQhEmVtQj8RjDTeIvVtHyA8tpeKHQhzoN/exec";
 let recognition; let isRecording = false; let activeMicTarget = null; // 'voice' or 'chat'
 
-// ★欠落していたチャット開閉関数を復活
+// ▼▼▼ app.js の toggleChat() をこれで上書き ▼▼▼
+
 function toggleChat() { 
     const win = document.getElementById('tama-chat-window'); 
     const btn = document.getElementById('tama-chat-btn'); 
     if (!win || !btn) return;
+    
     if (win.style.display === 'flex') { 
         win.style.display = 'none'; 
         btn.style.display = 'flex'; 
+        // ★バグ修正：チャット画面を閉じたら、マイクも安全に強制終了する
+        if (typeof forceStopMic === 'function') forceStopMic();
     } else { 
         win.style.display = 'flex'; 
         btn.style.display = 'none'; 
         const box = document.getElementById('chat-messages');
-        if(box) box.scrollTop = box.scrollHeight; // 開いた時に一番下にスクロール
+        if(box) box.scrollTop = box.scrollHeight;
     } 
 }
 
@@ -594,3 +598,4 @@ function getAppContextStr() {
     let t = { Cal: 0, P: 0, F: 0, C: 0 }; lst.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; });
     const remCal = TG.cal - t.Cal; return `現在の摂取: ${t.Cal}kcal (残り ${remCal}kcal)\n今日食べたもの: ${lst.map(x => x.N).join(', ') || 'なし'}`;
 }
+
