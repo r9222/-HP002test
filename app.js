@@ -566,18 +566,37 @@ async function processAIChat(text, loadingId) {
 }
 
 function addChatMsg(role, text) {
-    const box = document.getElementById('chat-messages'); const id = 'msg-' + Date.now();
-    const div = document.createElement('div'); div.className = `msg ${role}`; div.id = id;
-    const iconDiv = document.createElement('div'); iconDiv.className = 'icon'; iconDiv.innerHTML = '<img src="new_tama.png">';
-    const textDiv = document.createElement('div'); textDiv.className = 'text'; textDiv.innerHTML = text;
-    if(role === 'bot') { div.appendChild(iconDiv); div.appendChild(textDiv); } else { div.appendChild(textDiv); div.appendChild(iconDiv); }
-    box.appendChild(div); box.scrollTop = box.scrollHeight; return id;
+    const id = 'msg-' + Date.now();
+    const createMsgNode = () => {
+        const div = document.createElement('div'); div.className = `msg ${role}`; div.id = id;
+        const iconDiv = document.createElement('div'); iconDiv.className = 'icon'; iconDiv.innerHTML = '<img src="new_tama.png">';
+        const textDiv = document.createElement('div'); textDiv.className = 'text'; textDiv.innerHTML = text;
+        if(role === 'bot') { div.appendChild(iconDiv); div.appendChild(textDiv); } else { div.appendChild(textDiv); div.appendChild(iconDiv); }
+        return div;
+    };
+    
+    const box1 = document.getElementById('chat-messages');
+    if(box1) { box1.appendChild(createMsgNode()); box1.scrollTop = box1.scrollHeight; }
+    
+    const box2 = document.getElementById('v-chat-messages');
+    if(box2) { 
+        const node2 = createMsgNode();
+        node2.id = id + '-v'; 
+        box2.appendChild(node2); 
+        box2.scrollTop = box2.scrollHeight; 
+    }
+    return id; 
 }
-function removeMsg(id) { const el = document.getElementById(id); if(el) el.remove(); }
+
+function removeMsg(id) { 
+    const el1 = document.getElementById(id); if(el1) el1.remove(); 
+    const el2 = document.getElementById(id + '-v'); if(el2) el2.remove(); 
+}
 
 function getAppContextStr() {
     let t = { Cal: 0, P: 0, F: 0, C: 0 }; lst.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; });
     const remCal = TG.cal - t.Cal; return `現在の摂取: ${t.Cal}kcal (残り ${remCal}kcal)\n今日食べたもの: ${lst.map(x => x.N).join(', ') || 'なし'}`;
 }
+
 
 
