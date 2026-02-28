@@ -49,12 +49,10 @@ const forceStopMic = () => {
         const cMicBtn = document.getElementById('mic-btn');
         const cInputEl = document.getElementById('chat-input');
         
-        // ボイスUI側のマイクOFF処理とテキスト戻し
         if(vMicBtn) vMicBtn.classList.remove('listening'); 
         if(vStatusText) vStatusText.innerText = "マイクを押して話すたま！";
         if(vInputEl) vInputEl.placeholder = "文字で補足入力もできるたま！";
         
-        // 通常チャット側のマイクOFF処理とテキスト戻し
         if(cMicBtn) cMicBtn.classList.remove('recording');
         if(cInputEl) cInputEl.placeholder = "メッセージを入力...";
         
@@ -65,7 +63,6 @@ const forceStopMic = () => {
 document.addEventListener('visibilitychange', () => { if (document.hidden) forceStopMic(); });
 window.addEventListener('pagehide', forceStopMic); window.addEventListener('blur', forceStopMic);
 
-// 🎤 通常チャット用マイク (タップでON/OFF切り替え)
 function toggleMic() {
     activeMicTarget = 'chat';
     const micBtn = document.getElementById('mic-btn'); const inputEl = document.getElementById('chat-input');
@@ -76,7 +73,6 @@ function toggleMic() {
     );
 }
 
-// 🎙️ 新UI・ボイス専用画面用マイク (タップでON/OFF切り替え)
 window.toggleVoiceMic = function() {
     activeMicTarget = 'voice';
     const vMicBtn = document.getElementById('v-main-mic'); const vStatusText = document.getElementById('v-status-text'); const vInputEl = document.getElementById('v-chat-input');
@@ -187,7 +183,6 @@ async function processAIChat(text, loadingId, isVoiceMode = false) {
     
     const context = `【目標】Cal:${TG.cal} P:${TG.p.toFixed(0)} F:${TG.f.toFixed(0)} C:${TG.c.toFixed(0)}\n【現在摂取】Cal:${currentCal} P:${currentP.toFixed(0)} F:${currentF.toFixed(0)} C:${currentC.toFixed(0)}\n【現在時刻】${timeStr}\n【酒飲みモード】${alcStr}\n【現在の今日の食事記録リスト(ID付き)】\n${lst.length > 0 ? lst.map(x => `[ID: ${x.id}] ${x.time} | ${x.N} (${x.Cal}kcal)`).join('\n') : 'まだ記録なし'}`;
     
-    // プロンプト生成用の履歴テキスト作成（ユーザーの最新発言を入れる「前」のもの）
     let historyText = chatHistory.map(m => `${m.role === 'user' ? 'あなた' : 'たまちゃん'}: ${m.text}`).join('\n'); let userPrefText = "";
     if (myFoods && myFoods.length > 0) { userPrefText += `\n【ユーザーのMy食品】\n${myFoods.map(x => `- ${x.N} (P${x.P} F${x.F} C${x.C} ${x.Cal}kcal)`).join('\n')}\n`; }
     if (fav && fav.length > 0 && typeof DB !== 'undefined') { let favNames = fav.map(id => DB[id] ? DB[id][1] : "").filter(n => n); if(favNames.length > 0) { userPrefText += `【ユーザーのお気に入り】\n${favNames.join(', ')}\n`; } }
@@ -205,35 +200,80 @@ async function processAIChat(text, loadingId, isVoiceMode = false) {
 
     const prompt = `${typeof SYSTEM_PROMPT !== 'undefined' ? SYSTEM_PROMPT : 'あなたは「たまちゃん」です。'}\n=== 現在の状況 ===\n${context}\n=== 会話履歴 ===\n${historyText}\n${cheatSheetText}\n${userPrefText}\n=== ユーザーの発言 ===\n${text}\n\n【絶対ルール】\n・システムログ、AIとしての思考プロセス、プロンプトの解説は一切出力しないでください。\n・「たまちゃん」としての純粋なセリフと、必要なシステムコマンド（[DATA]など）のみを簡潔に出力してください。`;
 
-    // ★バグ1修正：プロンプトを作ったら、今回のユーザー発言を履歴に記憶させる！
     chatHistory.push({ role: 'user', text: text });
-    if (chatHistory.length > 6) chatHistory.shift(); // 履歴は直近6件を維持
+    if (chatHistory.length > 6) chatHistory.shift(); 
 
     try {
         const response = await fetch(gasUrl, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
         const data = await response.json(); let rawText = data.candidates[0].content.parts[0].text;
         rawText = rawText.replace(/\*\*/g, "").replace(/^たまちゃん:\s*/i, "").replace(/たまちゃんの返答:/g, "").replace(/たまちゃん:\s*/i, ""); 
 
-        let botReply = ""; let autoFood = null; let replaceFood = null; let targetFoodName = null; let deleteFood = null; let unknownFood = null; let recipeKeywords = null;
+        let botReply = rawText; 
+        let addedFoods = []; 
+        let replacedFoods = []; 
+        let deleteIds = []; 
+        let unknownFoods = []; 
+        let recipeKeywords = null;
         
-        const recMatch = rawText.match(/\[RECIPE\]\s*(.+)/);
-        if (recMatch) { recipeKeywords = recMatch[1].trim(); rawText = rawText.replace(recMatch[0], ""); }
+        // [RECIPE]の抽出
+        const recMatch = botReply.match(/\[RECIPE\]\s*(.+)/);
+        if (recMatch) { recipeKeywords = recMatch[1].trim(); botReply = botReply.replace(recMatch[0], ""); }
 
-        const dataIdx = rawText.indexOf("[DATA]"); const repIdx = rawText.indexOf("[REPLACE]"); const delIdx = rawText.indexOf("[DELETE]"); const unkIdx = rawText.indexOf("[UNKNOWN]");
+        // [UNKNOWN]の複数抽出
+        const unkMatches = [...botReply.matchAll(/\[UNKNOWN\]\s*(.+)/g)];
+        unkMatches.forEach(m => { unknownFoods.push(m[1].trim()); botReply = botReply.replace(m[0], ""); });
 
-        if (dataIdx !== -1) {
-            botReply = rawText.substring(0, dataIdx).trim(); let dStr = rawText.substring(dataIdx + 6).trim(); let parts = dStr.split('|'); let tZone = parts.length > 1 ? parts[0].trim() : getAutoTime(); let fStr = parts.length > 1 ? parts[1].trim() : parts[0].trim(); let d = fStr.split(/,|、/); 
-            if (d.length >= 4) { let p = parseFloat(d[1].replace(/[^\d.]/g, "")) || 0; let f = parseFloat(d[2].replace(/[^\d.]/g, "")) || 0; let c = parseFloat(d[3].replace(/[^\d.]/g, "")) || 0; let a = d.length >= 5 ? (parseFloat(d[4].replace(/[^\d.]/g, "")) || 0) : 0; let trueCal = Math.round(p * 4 + f * 9 + c * 4 + a * 7); autoFood = { N: d[0].trim(), P: p, F: f, C: c, A: a, Cal: trueCal, time: tZone }; }
-        } else if (repIdx !== -1) {
-            botReply = rawText.substring(0, repIdx).trim(); let dStr = rawText.substring(repIdx + 9).trim(); let parts = dStr.split('|');
-            if (parts.length >= 3) { targetFoodName = parts[0].trim(); let tZone = parts[1].trim(); let d = parts[2].split(/,|、/); if (d.length >= 4) { let p = parseFloat(d[1].replace(/[^\d.]/g, "")) || 0; let f = parseFloat(d[2].replace(/[^\d.]/g, "")) || 0; let c = parseFloat(d[3].replace(/[^\d.]/g, "")) || 0; let a = d.length >= 5 ? (parseFloat(d[4].replace(/[^\d.]/g, "")) || 0) : 0; let trueCal = Math.round(p * 4 + f * 9 + c * 4 + a * 7); replaceFood = { N: d[0].trim(), P: p, F: f, C: c, A: a, Cal: trueCal, time: tZone }; } }
-        } else if (delIdx !== -1) { botReply = rawText.substring(0, delIdx).trim(); deleteFood = rawText.substring(delIdx + 8).trim(); } 
-        else if (unkIdx !== -1) { botReply = rawText.substring(0, unkIdx).trim(); unknownFood = rawText.substring(unkIdx + 9).trim(); } 
-        else { botReply = rawText.trim(); }
+        // [DELETE]の複数抽出
+        const delMatches = [...botReply.matchAll(/\[DELETE\]\s*(\d+)/g)];
+        delMatches.forEach(m => { deleteIds.push(parseInt(m[1], 10)); botReply = botReply.replace(m[0], ""); });
+
+        // ★改善箇所：[DATA]の複数抽出＆JS側での掛け算処理
+        // フォーマット: [DATA] 時間帯 | 食品名, 基準P, 基準F, 基準C, 基準A, 倍率
+        const dataMatches = [...botReply.matchAll(/\[DATA\]\s*([^|]+)\|(.+)/g)];
+        dataMatches.forEach(m => {
+            let tZone = m[1].trim(); 
+            let d = m[2].split(/,|、/);
+            if (d.length >= 4) {
+                let name = d[0].trim();
+                let pBase = parseFloat(d[1].replace(/[^\d.]/g, "")) || 0;
+                let fBase = parseFloat(d[2].replace(/[^\d.]/g, "")) || 0;
+                let cBase = parseFloat(d[3].replace(/[^\d.]/g, "")) || 0;
+                let aBase = d.length >= 5 ? (parseFloat(d[4].replace(/[^\d.]/g, "")) || 0) : 0;
+                // 倍率（第6引数）があれば掛け算、なければ1倍
+                let mul = d.length >= 6 ? (parseFloat(d[5].replace(/[^\d.]/g, "")) || 1) : 1;
+                
+                let p = pBase * mul; let f = fBase * mul; let c = cBase * mul; let a = aBase * mul;
+                let cal = Math.round(p * 4 + f * 9 + c * 4 + a * 7);
+                addedFoods.push({ N: name, P: p, F: f, C: c, A: a, Cal: cal, time: tZone });
+            }
+            botReply = botReply.replace(m[0], "");
+        });
+
+        // ★改善箇所：[REPLACE]の複数抽出＆JS側での掛け算処理
+        const repMatches = [...botReply.matchAll(/\[REPLACE\]\s*(\d+)\s*\|\s*([^|]+)\|(.+)/g)];
+        repMatches.forEach(m => {
+            let id = parseInt(m[1], 10);
+            let tZone = m[2].trim();
+            let d = m[3].split(/,|、/);
+            if (d.length >= 4) {
+                let name = d[0].trim();
+                let pBase = parseFloat(d[1].replace(/[^\d.]/g, "")) || 0;
+                let fBase = parseFloat(d[2].replace(/[^\d.]/g, "")) || 0;
+                let cBase = parseFloat(d[3].replace(/[^\d.]/g, "")) || 0;
+                let aBase = d.length >= 5 ? (parseFloat(d[4].replace(/[^\d.]/g, "")) || 0) : 0;
+                let mul = d.length >= 6 ? (parseFloat(d[5].replace(/[^\d.]/g, "")) || 1) : 1;
+
+                let p = pBase * mul; let f = fBase * mul; let c = cBase * mul; let a = aBase * mul;
+                let cal = Math.round(p * 4 + f * 9 + c * 4 + a * 7);
+                replacedFoods.push({ targetId: id, data: { N: name, P: p, F: f, C: c, A: a, Cal: cal, time: tZone }});
+            }
+            botReply = botReply.replace(m[0], "");
+        });
 
         botReply = botReply.replace(/\[SYSTEM\].*/gi, "").trim(); 
         botReply = botReply.replace(/\[DATA\].*/gi, "").trim(); 
         botReply = botReply.replace(/システムコマンド.*/gi, "").trim(); 
+        botReply = botReply.trim(); // 最後に改行などを掃除
 
         removeMsg(loadingId); const newMsgId = addChatMsg('bot', botReply);
 
@@ -249,7 +289,8 @@ async function processAIChat(text, loadingId, isVoiceMode = false) {
             if(vMsgEl) vMsgEl.innerHTML += btnHtml;
         }
 
-        if (unknownFood) {
+        if (unknownFoods.length > 0) {
+            const unknownFood = unknownFoods[0]; // 最初の1つに対して検索ボタンを出す
             const btnHtml = `<br><br><div style="display:flex; gap:10px; width:100%; margin-top:8px;"><div onclick="openChatGPTAndCopy('${unknownFood}')" style="cursor:pointer; flex:1; background-color:#10A37F; color:#FFFFFF; padding:12px 0; border-radius:10px; font-weight:600; font-size:13px; text-decoration:none; text-align:center; box-shadow:0 2px 5px rgba(0,0,0,0.15); display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.4; box-sizing:border-box; transition:opacity 0.2s;"><div style="display:flex; align-items:center; gap:6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M22.28 10.51a6.6 6.6 0 0 0-1.63-7.1 6.62 6.62 0 0 0-7.04-1.6 6.59 6.59 0 0 0-8.91 3.52 6.61 6.61 0 0 0-1.57 7.15 6.6 6.6 0 0 0 1.63 7.09 6.61 6.61 0 0 0 7.03 1.6 6.59 6.59 0 0 0 8.92-3.53 6.62 6.62 0 0 0 1.57-7.13zm-8.87 9.87a4.57 4.57 0 0 1-3.23-1.32l.24-.14 4.54-2.62a1.05 1.05 0 0 0 .52-.91v-5.26l1.79 1.03a4.59 4.59 0 0 1 1.7 5.91 4.58 4.58 0 0 1-5.56 3.31zm-7.66-2.5a4.59 4.59 0 0 1-1.3-3.28l.2.16 4.55 2.63a1.04 1.04 0 0 0 1.05 0l4.55-2.63-.9-1.55-4.54 2.62a2.66 2.66 0 0 1-2.66 0L4.1 11.66a4.58 4.58 0 0 1 1.65-5.38zm7.5-12.78a4.58 4.58 0 0 1 3.23 1.33l-.24.14-4.54 2.62a1.04 1.04 0 0 0-.52.9v5.27l-1.8-1.04A4.59 4.59 0 0 1 8.2 8.52a4.58 4.58 0 0 1 5.06-3.41zm1.25 5.86-1.8-1.04v-3.1a4.58 4.58 0 0 1 6.85-2.1L16.2 6.5v.01l-4.54 2.62a2.66 2.66 0 0 1-2.67 0l-2.6-1.5 2.6-4.5a4.59 4.59 0 0 1 5.51-1.6zm4.6 7.42a4.59 4.59 0 0 1 1.3 3.28l-.2-.16-4.55-2.63a1.04 1.04 0 0 0-1.05 0l-4.54 2.63.9 1.55 4.54-2.62a2.66 2.66 0 0 1 2.66 0l2.58 1.5A4.58 4.58 0 0 1 19.1 18.4zM12 14.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg><span>ChatGPT</span></div><span style="font-size:9.5px; font-weight:400; margin-top:3px; opacity:0.9;">(質問を自動コピー)</span></div><a href="https://www.google.com/search?q=${encodeURIComponent(unknownFood + ' カロリー PFC')}" target="_blank" style="flex:1; background-color:#FFFFFF; color:#3C4043; border:1px solid #DADCE0; padding:12px 0; border-radius:10px; font-weight:600; font-size:13px; text-decoration:none; text-align:center; box-shadow:0 2px 5px rgba(0,0,0,0.05); display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.4; box-sizing:border-box; transition:background-color 0.2s;"><div style="display:flex; align-items:center; gap:6px;"><svg width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg><span>Google</span></div><span style="font-size:9.5px; font-weight:400; margin-top:3px; color:#5F6368;">(自分で調べる)</span></a></div>`;
             const msgEl = document.getElementById(newMsgId)?.querySelector('.text');
             if(msgEl) msgEl.innerHTML += btnHtml;
@@ -257,20 +298,27 @@ async function processAIChat(text, loadingId, isVoiceMode = false) {
             if(vMsgEl) vMsgEl.innerHTML += btnHtml;
         }
 
-        if (autoFood) { 
-            lst.push({ id: Date.now() + Math.floor(Math.random()*1000), N: "🤖 " + autoFood.N, P: autoFood.P, F: autoFood.F, C: autoFood.C, A: autoFood.A, Cal: autoFood.Cal, U: "AI", time: autoFood.time }); 
-            localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd(); window.scrollTo({ top: 0, behavior: 'smooth' }); 
-        } 
-        else if (deleteFood) { 
-            const targetId = parseInt(deleteFood.replace(/[^\d]/g, ''), 10);
+        // ★改善箇所：リストへの反映処理（複数対応）
+        let stateChanged = false;
+
+        deleteIds.forEach(targetId => {
             const foundIdx = lst.findIndex(item => item.id === targetId);
-            if (foundIdx !== -1) { lst.splice(foundIdx, 1); localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd(); } 
-        }
-        else if (replaceFood && targetFoodName) { 
-            const targetId = parseInt(targetFoodName.replace(/[^\d]/g, ''), 10);
-            const foundIdx = lst.findIndex(item => item.id === targetId);
-            const newItem = { id: targetId || Date.now(), N: "🤖 " + replaceFood.N, P: replaceFood.P, F: replaceFood.F, C: replaceFood.C, A: replaceFood.A, Cal: replaceFood.Cal, U: "AI", time: replaceFood.time }; 
+            if (foundIdx !== -1) { lst.splice(foundIdx, 1); stateChanged = true; }
+        });
+
+        addedFoods.forEach(food => {
+            lst.push({ id: Date.now() + Math.floor(Math.random()*1000), N: "🤖 " + food.N, P: food.P, F: food.F, C: food.C, A: food.A, Cal: food.Cal, U: "AI", time: food.time });
+            stateChanged = true;
+        });
+
+        replacedFoods.forEach(rep => {
+            const foundIdx = lst.findIndex(item => item.id === rep.targetId);
+            const newItem = { id: rep.targetId || Date.now(), N: "🤖 " + rep.data.N, P: rep.data.P, F: rep.data.F, C: rep.data.C, A: rep.data.A, Cal: rep.data.Cal, U: "AI", time: rep.data.time }; 
             if (foundIdx !== -1) { lst[foundIdx] = newItem; } else { lst.push({...newItem, id: Date.now()}); } 
+            stateChanged = true;
+        });
+
+        if (stateChanged) {
             localStorage.setItem('tf_dat', JSON.stringify(lst)); ren(); upd(); window.scrollTo({ top: 0, behavior: 'smooth' }); 
         }
         
