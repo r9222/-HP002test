@@ -374,7 +374,7 @@ input:checked + .slider:before { transform: translateX(22px); }
                 <div class="icon">📷</div>
                 <div>カメラで予測</div>
             </button>
-            <input type="file" accept="image/*" capture="environment" id="dummy-camera-input" style="display:none;" onchange="alert('📷 AIカメラ予測機能は現在開発中だたま！\n次回のアップデートを楽しみにしててたま！')">
+            <input type="file" accept="image/*" capture="environment" id="dummy-camera-input" style="display:none;" onchange="window.handleCameraUpload(event)">
         </div>
 
         <hr class="util-divider">

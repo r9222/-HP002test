@@ -177,7 +177,7 @@ window.sendVoiceChat = async function() {
 }
 
 // ▼▼▼ AI通信コア処理 ▼▼▼
-async function processAIChat(text, loadingId, isVoiceMode = false) {
+async function processAIChat(text, loadingId, isVoiceMode = false, imageBase64 = null) {
     const currentCal = lst.reduce((a,b)=>a+b.Cal,0); const currentP = lst.reduce((a,b)=>a+b.P,0); const currentF = lst.reduce((a,b)=>a+b.F,0); const currentC = lst.reduce((a,b)=>a+b.C,0);
     const d = new Date(); const timeStr = `${d.getHours()}時${d.getMinutes()}分`; const alcStr = TG.alcMode ? "ON" : "OFF";
     
@@ -204,7 +204,11 @@ async function processAIChat(text, loadingId, isVoiceMode = false) {
     if (chatHistory.length > 6) chatHistory.shift(); 
 
     try {
-        const response = await fetch(gasUrl, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
+        const payload = { contents: [{ parts: [{ text: prompt }] }] };
+        if (imageBase64) {
+            payload.imageBase64 = imageBase64;
+        }
+        const response = await fetch(gasUrl, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(payload) });
         const data = await response.json(); let rawText = data.candidates[0].content.parts[0].text;
         rawText = rawText.replace(/\*\*/g, "").replace(/^たまちゃん:\s*/i, "").replace(/たまちゃんの返答:/g, "").replace(/たまちゃん:\s*/i, ""); 
 
@@ -333,3 +337,65 @@ async function processAIChat(text, loadingId, isVoiceMode = false) {
         return errMsg;
     }
 }
+
+// ▼▼▼ カメラ画像アップロード・圧縮処理 ▼▼▼
+window.handleCameraUpload = function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // input要素の値をリセットして、同じ画像を連続で選択できるようにする
+    event.target.value = '';
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            const canvas = document.createElement('canvas');
+            const MAX_SIZE = 800; // 最大800pxに圧縮
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+                if (width > MAX_SIZE) {
+                    height *= MAX_SIZE / width;
+                    width = MAX_SIZE;
+                }
+            } else {
+                if (height > MAX_SIZE) {
+                    width *= MAX_SIZE / height;
+                    height = MAX_SIZE;
+                }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // JPEG形式で圧縮（品質0.8）
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            // プレフィックス(data:image/jpeg;base64,)を除外して純粋なBase64文字列を取得
+            const base64Data = dataUrl.split(',')[1];
+
+            // チャットウィンドウが開いていなければ開く
+            if (typeof toggleChat === 'function') {
+                const chatWin = document.getElementById('tama-chat-window');
+                if (chatWin && chatWin.style.display !== 'flex') {
+                    toggleChat();
+                }
+            }
+
+            const promptText = "この写真の料理のPFCとカロリーを推測し、いつもの [DATA] フォーマットで出力して";
+            addChatMsg('user', '📷 (画像を送信しました)');
+            const loadingId = addChatMsg('bot', '📷 画像を解析中だたま...');
+
+            // AIに画像データと一緒にリクエストを送信
+            processAIChat(promptText, loadingId, false, base64Data).catch(err => {
+                removeMsg(loadingId);
+                addChatMsg('bot', '画像処理に失敗したたま...。');
+            });
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+};
