@@ -326,9 +326,9 @@ input:checked + .slider:before { transform: translateX(22px); }
         </div>
         <div class="ta-warn">⚠️ 旧アプリをご利用の方へ<br>下のボタンからデータを引き継いでください。</div>
         <button class="btn-import-huge" onclick="event.stopPropagation(); document.getElementById('imp-file-top').click()">
-            📥 旧アプリのデータを復元(お引越し)
+            📥 データの復元 (バックアップを読込)
         </button>
-        <input type="file" id="imp-file-top" style="display:none" onchange="importData(this)">
+        <input type="file" id="imp-file-top" accept=".json,application/json" style="display:none" onchange="importData(this)">
     </div>
 
     <div class="tgt-sec">
@@ -487,6 +487,14 @@ input:checked + .slider:before { transform: translateX(22px); }
             <div style="text-align:center;font-size:12px;color:#666;margin-bottom:5px;">履歴一覧 (タップで修正)</div>
             <div id="body-hist-list" style="max-height:150px;overflow-y:auto;background:#f9f9f9;border-radius:8px;"></div>
         </div>
+    </div>
+
+    <!-- バックアップボタン（アプリ下部） -->
+    <div style="margin-top: 20px; padding-bottom: 20px;">
+        <p style="text-align:center; font-size:12px; color:#666; font-weight:bold; margin-bottom:8px;">万が一のデータ消失・機種変更に備えて</p>
+        <button class="btn-import-huge" style="background: linear-gradient(135deg, #3498db, #2980b9); box-shadow: 0 4px 15px rgba(52,152,219,0.3);" onclick="exportData()">
+            💾 バックアップをダウンロード保存
+        </button>
     </div>
 </div>
 
