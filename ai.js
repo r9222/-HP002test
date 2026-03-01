@@ -385,7 +385,7 @@ window.handleCameraUpload = function(event) {
                 }
             }
 
-            const promptText = "この写真の料理のPFCとカロリーを推測し、いつもの [DATA] フォーマットで出力して";
+           const promptText = "送信された画像からカロリーとPFCを読み取るか推測して、いつもの [DATA] フォーマットで出力して。もし「栄養成分表示（裏面のラベル）」の画像なら、商品名を無理に推測せず「成分スキャン」という食品名にして、数値をそのまま正確に使ってください！余計な雑談やコメントは一切不要です！";
             addChatMsg('user', '📷 (画像を送信しました)');
             const loadingId = addChatMsg('bot', '📷 画像を解析中だたま...');
 
