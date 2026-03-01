@@ -370,11 +370,12 @@ input:checked + .slider:before { transform: translateX(22px); }
                 <div class="icon">⌨️</div>
                 <div>手打ち入力</div>
             </button>
-            <button class="btn-sub-act btn-camera" onclick="document.getElementById('dummy-camera-input').click()">
+            <button class="btn-sub-act btn-camera" onclick="openCameraChoiceModal()">
                 <div class="icon">📷</div>
                 <div>カメラで予測</div>
             </button>
-            <input type="file" accept="image/*" capture="environment" id="dummy-camera-input" style="display:none;" onchange="window.handleCameraUpload(event)">
+            <input type="file" accept="image/*" capture="environment" id="camera-take-input" style="display:none;" onchange="handleCameraChoice(event)">
+            <input type="file" accept="image/*" id="camera-library-input" style="display:none;" onchange="handleCameraChoice(event)">
         </div>
 
         <hr class="util-divider">
@@ -515,6 +516,25 @@ input:checked + .slider:before { transform: translateX(22px); }
     </div>
 </div>
 
+<div id="camera-choice-modal" class="modal-overlay">
+    <div class="modal-box">
+        <span class="modal-title">画像を選択</span>
+        <span class="modal-subtitle" style="margin-bottom: 20px;">画像を何から取得するか選んでください</span>
+        
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+            <button class="m-btn" style="background: var(--th); color: #fff; padding: 15px; font-size: 16px;" onclick="selectCameraTake()">
+                📷 カメラを起動
+            </button>
+            <button class="m-btn" style="background: var(--ed); color: #fff; padding: 15px; font-size: 16px;" onclick="selectCameraLibrary()">
+                🖼️ ライブラリから選ぶ
+            </button>
+            <button class="m-btn m-cancel" style="margin-top: 5px;" onclick="closeCameraChoiceModal()">
+                キャンセル
+            </button>
+        </div>
+    </div>
+</div>
+
 <div id="tama-chat-btn" onclick="toggleChat()">
     <img src="new_tama.png" alt="たまちゃん">
 </div>
@@ -627,6 +647,26 @@ function openSaveModal() {
 }
 function closeResetModal() {
     document.getElementById('reset-modal').style.display = 'none';
+}
+
+function openCameraChoiceModal() {
+    document.getElementById('camera-choice-modal').style.display = 'flex';
+}
+function closeCameraChoiceModal() {
+    document.getElementById('camera-choice-modal').style.display = 'none';
+}
+function selectCameraTake() {
+    closeCameraChoiceModal();
+    document.getElementById('camera-take-input').click();
+}
+function selectCameraLibrary() {
+    closeCameraChoiceModal();
+    document.getElementById('camera-library-input').click();
+}
+function handleCameraChoice(event) {
+    if (typeof window.handleCameraUpload === 'function') {
+        window.handleCameraUpload(event);
+    }
 }
 
 function openVoiceUI() {
