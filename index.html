@@ -2401,10 +2401,34 @@
             </div>
             <button class="btn-body-rec" onclick="saveBody()">記録する</button>
             <div style="margin-top:20px;border-top:1px dashed #ccc;padding-top:10px;">
-                <div style="text-align:center;font-size:12px;color:#666;margin-bottom:5px;">履歴一覧 (タップで修正)</div>
+                <div style="text-align:center;font-size:12px;color:#666;margin-bottom:5px;">数字の履歴一覧 (タップで修正)</div>
                 <div id="body-hist-list" style="max-height:150px;overflow-y:auto;background:#f9f9f9;border-radius:8px;">
                 </div>
             </div>
+
+            <!-- ▼ 追加: アルバムギャラリー ▼ -->
+            <div style="margin-top:20px;border-top:1px solid #eee;padding-top:15px;" id="body-album-section">
+                <div style="text-align:center;font-size:14px;font-weight:bold;color:var(--primary);margin-bottom:10px;">
+                    📸 体型写真アルバム</div>
+                <div id="body-album-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <!-- JSで動的に追加 -->
+                </div>
+                <div id="body-album-empty"
+                    style="display:none; text-align:center; color:#999; font-size:12px; padding:20px 0;">まだ写真がありません
+                </div>
+            </div>
+        </div>
+
+        <!-- フルスクリーン写真プレビュー用モーダル (非表示) -->
+        <div id="body-photo-fs-modal" class="modal-overlay"
+            style="display:none; z-index:200000; background:rgba(0,0,0,0.9);" onclick="closeFullscreenPhoto()">
+            <img id="body-photo-fs-img" style="max-width:95%; max-height:85vh; object-fit:contain; border-radius:8px;">
+            <button id="body-photo-fs-del" class="m-btn m-cancel"
+                style="position:absolute; bottom:30px; background:#e74c3c; color:#fff;"
+                onclick="event.stopPropagation(); deleteCurrentFullscreenPhoto()">🗑️ この写真を削除</button>
+            <div
+                style="position:absolute; top:20px; right:20px; color:#fff; font-size:30px; font-weight:bold; cursor:pointer;">
+                ×</div>
         </div>
 
         <!-- バックアップボタン（アプリ下部） -->
@@ -2828,7 +2852,7 @@
             <div id="body-photo-actions-ready" style="display:none; flex-direction:column; gap:10px;">
                 <button class="m-btn"
                     style="background: var(--primary); color:#fff; font-weight:bold; box-shadow:0 4px 10px rgba(52,152,219,0.3);"
-                    onclick="generateAndShareBodyCard()">✨ カードを作成する</button>
+                    onclick="generateAndShareBodyCard()">✨ アルバムに保存する</button>
                 <div style="display:flex; gap:10px;">
                     <button class="m-btn m-cancel" style="flex:1;"
                         onclick="document.getElementById('body-photo-take-input').click()">撮り直す</button>
@@ -2845,16 +2869,17 @@
                 カードを生成中... ⏳
             </div>
 
-            <!-- 完成画像表示エリア (長押し保存用) -->
+            <!-- 完成画像表示エリア (長押し保存兼・アプリ内保存完了) -->
             <div id="body-photo-result-area" style="display:none; flex-direction:column; align-items:center; gap:15px;">
                 <div
-                    style="font-size:14px; color:var(--primary); font-weight:bold; background:#e8f4fd; padding:10px; border-radius:8px; border:1px solid #bce0fd;">
-                    👇 画像を長押しして「写真に追加」や「画像を保存」で保存できます
+                    style="font-size:14px; color:var(--primary); font-weight:bold; background:#e8f4fd; padding:10px; border-radius:8px; border:1px solid #bce0fd; width:100%;">
+                    ✅ アプリ内のアルバムに保存しました！<br>
+                    <span style="font-size:12px; font-weight:normal; color:#666;">※体組成タブからいつでも見返せます</span>
                 </div>
                 <img id="body-photo-result-img"
-                    style="max-width: 100%; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+                    style="max-width: 100%; max-height:400px; object-fit:contain; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
                 <button class="m-btn" style="background:var(--primary); color:#fff;"
-                    onclick="closeBodyPhotoModal()">閉じる</button>
+                    onclick="closeBodyPhotoModal(); openTabPanel('body-content', document.querySelectorAll('.tab-item')[3]);">閉じてアルバムを見る</button>
             </div>
         </div>
     </div>
@@ -2993,6 +3018,76 @@
 
     <!-- ▼ UI制御用スクリプト ▼ -->
     <script>
+        // ▼ IndexedDB (体型写真保存用) セットアップ ▼
+        const DB_NAME = 'TamaFitPhotoDB';
+        const DB_VERSION = 1;
+        const STORE_NAME = 'BodyPhotos';
+        let photoDb;
+
+        function initPhotoDb() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onerror = (e) => reject('IndexedDB error: ' + e.target.error);
+                request.onsuccess = (e) => {
+                    photoDb = e.target.result;
+                    resolve(photoDb);
+                };
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                    }
+                };
+            });
+        }
+
+        async function saveBodyPhotoToDb(dataUrl) {
+            if (!photoDb) await initPhotoDb();
+            return new Promise((resolve, reject) => {
+                const transaction = photoDb.transaction([STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                const record = {
+                    id: Date.now().toString(), // タイムスタンプをIDに
+                    timestamp: Date.now(),
+                    imageData: dataUrl
+                };
+                const request = store.add(record);
+                request.onsuccess = () => resolve(record.id);
+                request.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        async function getAllBodyPhotos() {
+            if (!photoDb) await initPhotoDb();
+            return new Promise((resolve, reject) => {
+                const transaction = photoDb.transaction([STORE_NAME], 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.getAll();
+                request.onsuccess = () => {
+                    // 最新順にソートして返す
+                    const photos = request.result || [];
+                    photos.sort((a, b) => b.timestamp - a.timestamp);
+                    resolve(photos);
+                };
+                request.onerror = (e) => reject(e.target.error);
+            });
+        }
+        async function deleteBodyPhoto(id) {
+            if (!photoDb) await initPhotoDb();
+            return new Promise((resolve, reject) => {
+                const transaction = photoDb.transaction([STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.delete(id);
+                request.onsuccess = () => resolve();
+                request.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        // ページロード時にDB初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            initPhotoDb().catch(console.error);
+        });
+
         // ▼ UI制御用スクリプト ▼
         let isCheatDay = localStorage.getItem('tf_cheat_day') === 'true';
         let recordOnCheatDay = localStorage.getItem('tf_cheat_record') === 'true';
@@ -3115,7 +3210,11 @@
             panel.style.display = 'block';
             if (typeof rHist === 'function' && id === 'hist-area') rHist();
             if (typeof drawGraph === 'function' && id === 'graph-area') drawGraph('week', document.querySelector('.g-btn'));
-            if (typeof drawBodyGraph === 'function' && id === 'body-content') { drawBodyGraph('A', document.querySelector('.b-tog-btn')); renderBodyList(); }
+            if (typeof drawBodyGraph === 'function' && id === 'body-content') {
+                drawBodyGraph('A', document.querySelector('.b-tog-btn'));
+                renderBodyList();
+                if (typeof renderBodyGallery === 'function') renderBodyGallery();
+            }
             setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
         }
 
@@ -3320,8 +3419,11 @@
                 ctx.textAlign = 'right';
                 ctx.fillText('Generated by TamaFit', cardWidth - 30, cardHeight - 30);
 
-                // --- 画像化して表示 (長押し保存用) ---
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+                // --- 画像化して表示 (IndexedDBに保存してプレビュー表示) ---
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.85); // 圧縮して容量削減
+
+                // IndexedDBへ保存
+                await saveBodyPhotoToDb(dataUrl);
 
                 document.getElementById('body-photo-preview-area').style.display = 'none';
                 document.getElementById('body-photo-loading').style.display = 'none';
@@ -3329,6 +3431,15 @@
                 const resultArea = document.getElementById('body-photo-result-area');
                 document.getElementById('body-photo-result-img').src = dataUrl;
                 resultArea.style.display = 'flex';
+
+                if (typeof showToast === 'function') {
+                    showToast('アルバムに保存しました！');
+                }
+
+                // 履歴タブを開いている場合はリロードさせる処理を入れる (後で実装)
+                if (typeof renderBodyGallery === 'function') {
+                    renderBodyGallery();
+                }
 
             } catch (error) {
                 console.error('Card generation error:', error);
@@ -3375,6 +3486,82 @@
     <script src="tamachan-data.js"></script>
     <script src="app.js"></script>
     <script src="ai.js"></script>
+
+    <!-- ▼ 新規追加: アルバムUIレンダリング ▼ -->
+    <script>
+        let currentFsPhotoId = null;
+
+        async function renderBodyGallery() {
+            const grid = document.getElementById('body-album-grid');
+            const emptyTxt = document.getElementById('body-album-empty');
+            if (!grid || !emptyTxt) return;
+
+            grid.innerHTML = '';
+
+            try {
+                const photos = await getAllBodyPhotos();
+                if (photos.length === 0) {
+                    grid.style.display = 'none';
+                    emptyTxt.style.display = 'block';
+                    return;
+                }
+
+                grid.style.display = 'grid';
+                emptyTxt.style.display = 'none';
+
+                photos.forEach(photo => {
+                    const wrap = document.createElement('div');
+                    wrap.style.cssText = 'position:relative; width:100%; aspect-ratio:3/4; overflow:hidden; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1); cursor:pointer; background:#000;';
+                    wrap.onclick = () => openFullscreenPhoto(photo.id, photo.imageData);
+
+                    const img = document.createElement('img');
+                    img.src = photo.imageData;
+                    img.style.cssText = 'width:100%; height:100%; object-fit:cover; transition:transform 0.2s;';
+                    // ホバー効果 (モバイルではタップ時)
+                    wrap.onmousedown = () => img.style.transform = 'scale(0.95)';
+                    wrap.onmouseup = () => img.style.transform = 'scale(1)';
+                    wrap.onmouseleave = () => img.style.transform = 'scale(1)';
+
+                    const dateStr = new Date(photo.timestamp).toLocaleDateString();
+                    const badge = document.createElement('div');
+                    badge.textContent = dateStr;
+                    badge.style.cssText = 'position:absolute; bottom:5px; right:5px; background:rgba(0,0,0,0.6); color:#fff; font-size:10px; padding:2px 6px; border-radius:4px; pointer-events:none;';
+
+                    wrap.appendChild(img);
+                    wrap.appendChild(badge);
+                    grid.appendChild(wrap);
+                });
+            } catch (e) {
+                console.error('ギャラリー読み込みエラー:', e);
+            }
+        }
+
+        function openFullscreenPhoto(id, dataUrl) {
+            currentFsPhotoId = id;
+            document.getElementById('body-photo-fs-img').src = dataUrl;
+            document.getElementById('body-photo-fs-modal').style.display = 'flex';
+        }
+
+        function closeFullscreenPhoto() {
+            document.getElementById('body-photo-fs-modal').style.display = 'none';
+            document.getElementById('body-photo-fs-img').src = '';
+            currentFsPhotoId = null;
+        }
+
+        async function deleteCurrentFullscreenPhoto() {
+            if (!currentFsPhotoId) return;
+            if (!confirm('この写真を削除してもよろしいですか？\n(復元できません)')) return;
+
+            try {
+                await deleteBodyPhoto(currentFsPhotoId);
+                closeFullscreenPhoto();
+                renderBodyGallery();
+                if (typeof showToast === 'function') showToast('写真を削除しました');
+            } catch (e) {
+                alert('削除に失敗しました: ' + e);
+            }
+        }
+    </script>
     <script>
         if ('serviceWorker' in navigator) { window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js'); }); }
     </script>
