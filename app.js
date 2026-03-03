@@ -546,7 +546,7 @@ function drawBodyGraph(mode, btn) {
     datasets.forEach((ds) => {
         let pts = "";
         let areaPts = ""; // 面チャート用の座標
-        const vals = dataPoints.map(d => { if (ds.key === 'w') return d.w; if (ds.key === 'f') return d.f; if (ds.key === 'waist') return d.waist; if (ds.key === 'fm') return (d.w && d.f) ? (d.w * d.f / 100) : 0; if (ds.key === 'lbm') return (d.w && d.f) ? (d.w - (d.w * d.f / 100)) : 0; return 0; });
+        const vals = dataPoints.map(d => { let v = 0; if (ds.key === 'w') v = d.w; else if (ds.key === 'f') v = d.f; else if (ds.key === 'waist') v = d.waist; else if (ds.key === 'fm') v = (d.w && d.f) ? (d.w * d.f / 100) : 0; else if (ds.key === 'lbm') v = (d.w && d.f) ? (d.w - (d.w * d.f / 100)) : 0; return Number(v) || 0; });
         const max = Math.max(...vals) || 100; const min = Math.min(...vals.filter(v => v > 0)) || 0; const range = max - min || 1; const current = vals[vals.length - 1] || 0;
         if (Math.max(...vals) > 0) { legend.innerHTML += `<div class="bl-item"><div class="bl-dot" style="background:${ds.color}"></div><span>${ds.label}: ${current.toFixed(1)}${ds.unit} <span style="color:#999;font-size:9px;">(${min.toFixed(0)}~${max.toFixed(0)})</span></span></div>`; }
 
