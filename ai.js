@@ -50,8 +50,8 @@ const forceStopMic = () => {
         const cInputEl = document.getElementById('chat-input');
 
         if (vMicBtn) vMicBtn.classList.remove('listening');
-        if (vStatusText) vStatusText.innerText = "マイクを押して話すたま！";
-        if (vInputEl) vInputEl.placeholder = "文字で補足入力もできるたま！";
+        if (vStatusText) vStatusText.innerText = "マイクOFF";
+        if (vInputEl) vInputEl.placeholder = "文字でも記録できます";
 
         if (cMicBtn) cMicBtn.classList.remove('recording');
         if (cInputEl) cInputEl.placeholder = "メッセージを入力...";
@@ -78,7 +78,7 @@ window.toggleVoiceMic = function () {
     const vMicBtn = document.getElementById('v-main-mic'); const vStatusText = document.getElementById('v-status-text'); const vInputEl = document.getElementById('v-chat-input');
     if (isRecording) { forceStopMic(); return; }
     startRecognition(
-        () => { vMicBtn.classList.add('listening'); vStatusText.innerText = "たまちゃんが聞いてるたま！"; vInputEl.value = ''; },
+        () => { vMicBtn.classList.add('listening'); vStatusText.innerText = "マイクON"; vInputEl.value = ''; },
         (text) => { vInputEl.value = text; sendVoiceChat(); }
     );
 };
@@ -193,7 +193,7 @@ window.sendVoiceChat = async function () {
 
     await processAIChat(text, loadingId, true);
 
-    vStatusText.innerText = "マイクを押して続けて話せるたま！";
+    vStatusText.innerText = "マイクOFF";
     inputEl.disabled = false;
 }
 
