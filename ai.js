@@ -414,6 +414,17 @@ async function processAIChat(text, loadingId, isVoiceMode = false, imageBase64 =
             if (foundIdx !== -1) { lst.splice(foundIdx, 1); stateChanged = true; }
         });
 
+        // ★重複防止：同じ食品名の[DATA]が複数ある場合は最初の1つだけ残す
+        if (addedFoods.length > 1) {
+            const seen = new Set();
+            addedFoods = addedFoods.filter(food => {
+                const key = food.N.trim();
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+        }
+
         addedFoods.forEach(food => {
             lst.push({ id: Date.now() + Math.floor(Math.random() * 1000), N: "🤖 " + food.N, P: food.P, F: food.F, C: food.C, A: food.A, Cal: food.Cal, U: "AI", time: food.time });
             stateChanged = true;
