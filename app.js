@@ -40,11 +40,12 @@ window.onload = () => {
 
     // 【改善3】日付が変わっていれば、チートデイやハイカーボモードを強制的に解除
     if (lastDateStr !== todayStr) {
-        if (typeof cancelCheatDaySilent === 'function') {
-            cancelCheatDaySilent();
-        } else if (TG.isCheatDay) {
-            TG.isCheatDay = false; TG.highCarbMode = false; TG.recordOnCheatDay = true;
-            localStorage.setItem('tf_tg', JSON.stringify(TG));
+        if (typeof finishCheatDay === 'function') {
+            finishCheatDay();
+        } else {
+            localStorage.setItem('tf_cheat_day', 'false');
+            localStorage.setItem('tf_cheat_record', 'false');
+            localStorage.setItem('tf_cheat_highcarb', 'false');
         }
     }
 
@@ -749,8 +750,8 @@ function mgrGenerateFoodDummy(months) {
         let dateStr = d.toLocaleDateString();
 
         // 既存の履歴を取得
-        let existing = localStorage.getItem('tf_hist_' + dateStr);
-        let historyLst = existing ? JSON.parse(existing) : [];
+        let existingObj = hist.find(h => h.d === dateStr);
+        let historyLst = existingObj ? JSON.parse(JSON.stringify(existingObj.l)) : [];
 
         // 食事ダミーデータ (isDummy: true を付与)
         let dummyLst = [
@@ -835,23 +836,27 @@ function mgrResetDummyData() {
     let bodyCount = 0;
 
     // 1. 食事履歴から isDummy=true を削除
-    for (let i = 0; i < localStorage.length; i++) {
-        let key = localStorage.key(i);
-        if (key && key.startsWith('tf_hist_')) {
-            let hist = JSON.parse(localStorage.getItem(key)) || [];
-            let originalLen = hist.length;
-            hist = hist.filter(item => !item.isDummy);
+    let originalLstLen = lst.length;
+    lst = lst.filter(item => !item.isDummy);
+    foodCount += (originalLstLen - lst.length);
+    sv();
 
-            if (hist.length < originalLen) {
-                foodCount += (originalLen - hist.length);
-                if (hist.length === 0) {
-                    localStorage.removeItem(key); // 空になったらキーごと削除
-                } else {
-                    localStorage.setItem(key, JSON.stringify(hist));
-                }
-            }
+    let newHist = [];
+    hist.forEach(h => {
+        let oldLen = h.l.length;
+        h.l = h.l.filter(item => !item.isDummy);
+        if (h.l.length < oldLen) {
+            foodCount += (oldLen - h.l.length);
         }
-    }
+        if (h.l.length > 0) {
+            const t = { Cal: 0, P: 0, F: 0, C: 0, A: 0 };
+            h.l.forEach(x => { t.Cal += x.Cal; t.P += x.P; t.F += x.F; t.C += x.C; t.A += (x.A || 0); });
+            h.s = t;
+            newHist.push(h);
+        }
+    });
+    hist = newHist;
+    localStorage.setItem('tf_hist', JSON.stringify(hist));
 
     // 2. 体組成履歴から isDummy=true を削除
     let originalBodyLen = bodyData.length;
