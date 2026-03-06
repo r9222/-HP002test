@@ -236,8 +236,10 @@ async function processAIChat(text, loadingId, isVoiceMode = false, imageBase64 =
         // 音声モード: たまちゃんのペルソナを完全に排除した専用プロンプトを使用
         basePrompt = typeof VOICE_SYSTEM_PROMPT !== 'undefined' ? VOICE_SYSTEM_PROMPT : 'あなたは食事記録専用の無機質なアシスタントです。';
         voiceRule = '';
-        // 音声モード時はチャット履歴を含めない（たまちゃん口調の履歴が混入するのを防ぐ）
-        historyText = '';
+        // 音声モード時は直近2件のみ残す（訂正・修正に必要な文脈を保持）
+        // ただし「たまちゃん」の口調が含まれる履歴は除外する
+        const recentHistory = chatHistory.slice(-2);
+        historyText = recentHistory.map(m => `${m.role === 'user' ? 'ユーザー' : 'システム'}: ${m.text}`).join('\n');
     } else {
         basePrompt = typeof SYSTEM_PROMPT !== 'undefined' ? SYSTEM_PROMPT : 'あなたは「たまちゃん」です。';
         voiceRule = '・「たまちゃん」としての純粋なセリフと、必要なシステムコマンドのみを出力してください。\n⚠️【重要】「記録して」「追加して」と言われない限り、絶対に[DATA]タグを出力しないでください！';
