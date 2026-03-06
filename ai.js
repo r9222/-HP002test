@@ -230,11 +230,17 @@ async function processAIChat(text, loadingId, isVoiceMode = false, imageBase64 =
         if (matchedFoods.length > 0) cheatSheetText = `\n【カンペ(公式データ)】\n${matchedFoods.slice(0, 5).join('\n')}\n`;
     }
 
-    let basePrompt = typeof SYSTEM_PROMPT !== 'undefined' ? SYSTEM_PROMPT : 'あなたは「たまちゃん」です。';
-    let voiceRule = '・「たまちゃん」としての純粋なセリフと、必要なシステムコマンドのみを出力してください。\n⚠️【重要】「記録して」「追加して」と言われない限り、絶対に[DATA]タグを出力しないでください！';
+    let basePrompt, voiceRule;
 
     if (isVoiceMode) {
-        voiceRule = '【音声モード特別ルール】\n・あなたは無機質で端的な報告用AIアシスタントとして振る舞ってください。\n・感情を持たず、事実とシステムコマンドのみを極めて短く回答してください。「たまちゃん」としての振る舞いや、語尾に「だたま」などを付与することは絶対に避けてください。\n・無機質に「〇〇を登録しました。」等のごく短い事実の報告文と、必要なシステムコマンド（[DATA]など）のみを出力してください。\n・「うどん」など、ユーザーから分量の指定がなく1人前などの分量を推定して登録した場合は、報告文の最後に必ず「※分量が想定と違う場合は教えてください。」と添えてください。';
+        // 音声モード: たまちゃんのペルソナを完全に排除した専用プロンプトを使用
+        basePrompt = typeof VOICE_SYSTEM_PROMPT !== 'undefined' ? VOICE_SYSTEM_PROMPT : 'あなたは食事記録専用の無機質なアシスタントです。';
+        voiceRule = '';
+        // 音声モード時はチャット履歴を含めない（たまちゃん口調の履歴が混入するのを防ぐ）
+        historyText = '';
+    } else {
+        basePrompt = typeof SYSTEM_PROMPT !== 'undefined' ? SYSTEM_PROMPT : 'あなたは「たまちゃん」です。';
+        voiceRule = '・「たまちゃん」としての純粋なセリフと、必要なシステムコマンドのみを出力してください。\n⚠️【重要】「記録して」「追加して」と言われない限り、絶対に[DATA]タグを出力しないでください！';
     }
 
     const prompt = `${basePrompt}\n=== 現在の状況 ===\n${context}\n=== 会話履歴 ===\n${historyText}\n${cheatSheetText}\n${userPrefText}\n=== ユーザーの発言 ===\n${text}\n\n【絶対ルール】\n・システムログ、AIとしての思考プロセス、プロンプトの解説は一切出力しないでください。\n${voiceRule}`;
